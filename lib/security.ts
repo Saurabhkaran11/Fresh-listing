@@ -1,8 +1,8 @@
-import { randomBytes } from "node:crypto";
-
 /** Generate an opaque value for account-link and webhook state transitions. */
 export function secureToken(bytes = 24): string {
-  return randomBytes(bytes).toString("base64url");
+  const values = new Uint8Array(bytes);
+  crypto.getRandomValues(values);
+  return btoa(String.fromCharCode(...values)).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
 }
 
 export function safeJson<T>(value: string | null | undefined, fallback: T): T {
