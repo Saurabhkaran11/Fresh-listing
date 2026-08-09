@@ -12,10 +12,12 @@
     "test": "npm run build && node --test tests/*.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
+    "db:postgres:migrate": "node scripts/migrate-postgres.mjs",
     "realtime:start": "node realtime/server.mjs",
     "realtime:dev": "node --watch realtime/server.mjs"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "@socket.io/redis-adapter": "^8.3.0",
     "drizzle-orm": "0.45.2",
     "react": "19.2.6",

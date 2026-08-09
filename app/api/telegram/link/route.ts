@@ -1,5 +1,5 @@
 import { getChatGPTUser } from "../../../chatgpt-auth";
-import { getD1 } from "../../../../lib/runtime-db";
+import { ensureUserSettings, getD1 } from "../../../../lib/runtime-db";
 import { secureToken } from "../../../../lib/security";
 import { isTelegramConfigured, telegramConfig } from "../../../../lib/telegram";
 
@@ -9,6 +9,7 @@ export async function POST() {
   if (!isTelegramConfigured()) return Response.json({ error: "Telegram is not configured yet. Add TELEGRAM_BOT_TOKEN on the server." }, { status: 503 });
 
   const database = getD1();
+  await ensureUserSettings(database, user.userId, user.email);
   const token = secureToken(18);
   const expiresAt = Date.now() + 15 * 60 * 1000;
   await database.prepare("DELETE FROM telegram_link_tokens WHERE owner_user_id = ? OR expires_at < ?").bind(user.userId, Date.now()).run();

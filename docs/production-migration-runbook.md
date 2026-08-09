@@ -23,6 +23,21 @@ This runbook is intentionally staged so the existing private Sites deployment re
 - Create a least-privileged runtime role and a separate migration role with DDL permission.
 - Import users/jobs from D1 using a checksum report before enabling production writes.
 
+The application now has a database compatibility boundary in
+`lib/runtime-db.ts`: `DATABASE_URL` selects PostgreSQL through the Neon
+serverless driver, while omitting it preserves the current D1 rollback path.
+For a staging bootstrap, set `DATABASE_URL` locally and run:
+
+```bash
+npm run db:postgres:migrate
+npm test
+```
+
+Do not set `DATABASE_URL` in the hosted production environment until the
+schema is applied, the D1 export has been reconciled, and the staging smoke
+test has passed. The application deliberately does not create tables during a
+request.
+
 ## 4. Redis bootstrap
 
 - Provision managed Redis with TLS and a private connection URL where the host supports it.

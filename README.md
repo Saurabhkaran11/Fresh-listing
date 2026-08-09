@@ -1,6 +1,6 @@
 # Fresh Listings
 
-Fresh Listings is an authenticated job-search workspace for collecting, ranking, and tracking software-engineering opportunities. It stores each approved/public collection in Cloudflare D1, can sync new rows to a native Google Sheet that is Excel-compatible, sends an optional digest, and provides an optional AI fit analysis. Restricted portals are exposed through native-search links or user-assisted manual import until an official partner integration is approved.
+Fresh Listings is an authenticated job-search workspace for collecting, ranking, and tracking software-engineering opportunities. It stores each approved/public collection in the configured durable database (Cloudflare D1 by default, or managed PostgreSQL when `DATABASE_URL` is set), can sync new rows to a native Google Sheet that is Excel-compatible, sends an optional digest, and provides an optional AI fit analysis. Restricted portals are exposed through native-search links or user-assisted manual import until an official partner integration is approved.
 
 ## Product surface
 
@@ -20,6 +20,7 @@ Copy `.env.example` for local development. In production, set the same names in 
 
 | Variable | Required for | Notes |
 | --- | --- | --- |
+| `DATABASE_URL` | Managed PostgreSQL | Optional cutover; omit to use the current D1 binding |
 | `SERPAPI_API_KEY` | Automated cloud scraping | SerpApi Google Jobs key |
 | `GOOGLE_CLIENT_ID` | Drive/Sheets OAuth | Web application OAuth client |
 | `GOOGLE_CLIENT_SECRET` | Drive/Sheets OAuth | Keep secret |
@@ -55,7 +56,11 @@ npm run dev
 npm run build
 ```
 
-The app uses vinext and Cloudflare-compatible output. D1 is declared as the `DB` binding in `.openai/hosting.json`; Drizzle migrations live under `drizzle/`.
+The app uses vinext and Cloudflare-compatible output. D1 is declared as the
+`DB` binding in `.openai/hosting.json`; Drizzle migrations live under
+`drizzle/`. For the managed PostgreSQL cutover, apply
+`infra/postgres/schema.sql` with `npm run db:postgres:migrate` before setting
+`DATABASE_URL` in the hosted runtime.
 
 ## API routes
 
@@ -132,6 +137,12 @@ runbook before moving production traffic:
 - `render.yaml` — Render realtime service configuration.
 - `infra/postgres/schema.sql` — PostgreSQL baseline for the migration.
 - `.env.production.example` — target production secret names and ownership.
+
+The API persistence boundary is now dual-mode: set `DATABASE_URL` to use
+managed PostgreSQL through the Neon serverless driver, or leave it unset to
+use the existing Cloudflare D1 binding. Run `npm run db:postgres:migrate` only
+after pointing `DATABASE_URL` at a staging database; the command applies the
+idempotent PostgreSQL baseline and never runs automatically during a request.
 
 The existing Vinext/Cloudflare-D1 root is intentionally not advertised as a
 Vercel deployment target. Complete the PostgreSQL and stock Next.js migration
