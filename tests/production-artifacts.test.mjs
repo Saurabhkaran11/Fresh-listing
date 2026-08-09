@@ -3,7 +3,7 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 
 test("production migration artifacts define the durable and realtime boundaries", async () => {
-  const [render, schema, design, runbook, realtime, runtimeDb, packageJson, migration] = await Promise.all([
+  const [render, schema, design, runbook, realtime, runtimeDb, packageJson, migration, cronRoute, vercelConfig] = await Promise.all([
     readFile(new URL("../render.yaml", import.meta.url), "utf8"),
     readFile(new URL("../infra/postgres/schema.sql", import.meta.url), "utf8"),
     readFile(new URL("../docs/production-system-design.md", import.meta.url), "utf8"),
@@ -12,6 +12,8 @@ test("production migration artifacts define the durable and realtime boundaries"
     readFile(new URL("../lib/runtime-db.ts", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
     readFile(new URL("../scripts/migrate-postgres.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/cron/daily-digest/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../vercel.json", import.meta.url), "utf8"),
   ]);
   assert.match(render, /healthCheckPath: \/ready/);
   assert.match(render, /REALTIME_EVENT_SECRET/);
@@ -31,4 +33,6 @@ test("production migration artifacts define the durable and realtime boundaries"
   assert.match(packageJson, /"build": "next build --webpack"/);
   assert.doesNotMatch(packageJson, /vinext|wrangler|drizzle/);
   assert.match(migration, /DATABASE_URL is required/);
+  assert.match(cronRoute, /export async function GET/);
+  assert.match(vercelConfig, /daily-digest/);
 });

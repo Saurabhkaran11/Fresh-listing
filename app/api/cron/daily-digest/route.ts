@@ -2,7 +2,15 @@ import { getDatabase, runtimeEnv } from "../../../../lib/runtime-db";
 import { emitRealtimeEvent } from "../../../../lib/realtime";
 import { sendTelegramMessage, telegramConfig } from "../../../../lib/telegram";
 
+export async function GET(request: Request) {
+  return runDigest(request);
+}
+
 export async function POST(request: Request) {
+  return runDigest(request);
+}
+
+async function runDigest(request: Request) {
   const secret = String(runtimeEnv().CRON_SECRET || "");
   const supplied = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || request.headers.get("x-cron-secret") || "";
   if (!secret || supplied !== secret) return Response.json({ error: "Unauthorized cron request." }, { status: 401 });

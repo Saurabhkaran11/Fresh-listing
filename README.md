@@ -55,7 +55,7 @@ Fresh Listings is a production Next.js job-search workspace. It collects jobs fr
 - Import `Saurabhkaran11/Fresh-listing` into Vercel as a Next.js project.
 - Add all required variables to Vercel Production and Preview scopes; do not commit `.env.local`.
 - Confirm the Neon schema is applied, then deploy with `npx vercel --prod` or the connected Git branch.
-- Configure Vercel Cron to call `/api/cron/daily-digest` with `Authorization: Bearer $CRON_SECRET`.
+- Configure Vercel Cron to call `/api/cron/daily-digest` at 08:00 UTC (the checked-in `vercel.json` schedule); Vercel supplies `Authorization: Bearer $CRON_SECRET`.
 - Set the production URL in `NEXT_PUBLIC_APP_URL` and update both Google OAuth clients before smoke testing.
 
 ## Database and migrations

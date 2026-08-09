@@ -65,7 +65,7 @@ The application requires `DATABASE_URL` and deliberately does not create tables 
 
 - Create a production Telegram bot and set the webhook URL with a random secret token.
 - Link a test chat from the dashboard, send a prompt, verify persistence, and test an invalid/oversized prompt.
-- Configure a scheduler to call the daily digest endpoint with `Authorization: Bearer <CRON_SECRET>`.
+- The checked-in `vercel.json` schedules `/api/cron/daily-digest` at 08:00 UTC; Vercel supplies `Authorization: Bearer <CRON_SECRET>`.
 - Verify duplicate webhook delivery does not duplicate jobs or notifications.
 
 ## 9. Cutover checks
