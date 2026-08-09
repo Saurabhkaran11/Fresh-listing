@@ -38,6 +38,19 @@ npm test
 The migration is idempotent and is not executed during an application request.
 The schema has already been applied to the provisioned Neon branch.
 
+## Vercel project
+
+- Project: `fresh-listings-production`
+- Project ID: `prj_TfpvGIKVrAeUeWTAUmjqgIvkxRwR`
+- Team: `saurabhkaran11's projects`
+- Git repository: `Saurabhkaran11/Fresh-listing`
+- Current state: project created and Git-connected; no deployment has been
+  promoted yet because the stock Next.js/Vercel runtime migration is still
+  pending.
+- Current framework preset: `Other`, matching the existing Vinext/Cloudflare
+  checkout. Update this to Next.js only when the Vercel-compatible app entry
+  point is merged.
+
 ## Remaining deployment inputs
 
 - Vercel project/team and production domain.
