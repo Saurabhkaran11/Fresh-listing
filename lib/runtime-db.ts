@@ -1,51 +1,43 @@
 import { neon } from "@neondatabase/serverless";
-import { env } from "cloudflare:workers";
 
-type RuntimeEnv = {
-  DB?: D1Database;
-  DATABASE_URL?: string;
-  [key: string]: unknown;
+type QueryResult = {
+  rows?: Array<Record<string, unknown>>;
+  rowCount?: number | null;
 };
 
-/**
- * Runtime configuration works in both the current Cloudflare deployment and
- * the future Node/Vercel deployment. DATABASE_URL is the explicit Postgres
- * cutover switch; the Cloudflare binding remains the fallback when it is unset.
- */
-export function runtimeEnv(): RuntimeEnv {
-  const processEnv = typeof process !== "undefined" ? process.env : {};
-  return { ...processEnv, ...(env as unknown as RuntimeEnv) } as RuntimeEnv;
+export type PreparedStatement = {
+  bind(...values: unknown[]): PreparedStatement;
+  all<T = Record<string, unknown>>(): Promise<{ results: T[]; success: true; meta: { changes: number } }>;
+  first<T = Record<string, unknown>>(columnName?: string): Promise<T | null>;
+  run(): Promise<{ results: never[]; success: true; meta: { changes: number } }>;
+};
+
+export type Database = {
+  prepare(queryText: string): PreparedStatement;
+  batch(statements: PreparedStatement[]): Promise<{ results: never[]; success: true; meta: { changes: number } }>;
+};
+
+export function runtimeEnv(): Record<string, string | undefined> {
+  return process.env;
 }
 
 /**
- * Database compatibility boundary.
- *
- * Existing routes use the D1 prepare/bind API. Keeping that small interface
- * here means we can switch to managed PostgreSQL by setting DATABASE_URL
- * without duplicating persistence logic across every API route. D1 remains the
- * safe rollback path until the PostgreSQL schema and data migration complete.
+ * PostgreSQL is the only application database in the production runtime.
+ * Neon’s HTTP driver is safe for Vercel serverless/Node route handlers and
+ * avoids connection exhaustion during bursty traffic.
  */
-export function getD1(): D1Database {
-  const config = runtimeEnv();
-  if (config.DATABASE_URL) return getPostgresDatabase(config.DATABASE_URL) as unknown as D1Database;
-  if (!config.DB) throw new Error("The Fresh Listings database is not connected yet. Set DATABASE_URL or deploy with the DB binding enabled.");
-  return config.DB;
+export function getDatabase(): Database {
+  const connectionString = runtimeEnv().DATABASE_URL;
+  if (!connectionString) throw new Error("DATABASE_URL is not configured. Add the pooled Neon connection string to the server environment.");
+  return getPostgresDatabase(connectionString);
 }
 
-export function databaseProvider(): "postgres" | "d1" {
-  return runtimeEnv().DATABASE_URL ? "postgres" : "d1";
-}
-
-export async function ensureUserSettings(database: D1Database, userId: string, email: string) {
-  if (databaseProvider() === "postgres") {
-    // The production schema uses the authenticated subject as the stable user
-    // primary key, so all owner_user_id foreign keys remain deterministic.
-    await database.prepare(`
-      INSERT INTO users (id, auth_subject, email)
-      VALUES (?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET email = excluded.email, updated_at = CURRENT_TIMESTAMP
-    `).bind(userId, userId, email).run();
-  }
+export async function ensureUserSettings(database: Database, userId: string, email: string, displayName?: string | null) {
+  await database.prepare(`
+    INSERT INTO users (id, auth_subject, email, display_name)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET email = excluded.email, display_name = COALESCE(excluded.display_name, users.display_name), updated_at = CURRENT_TIMESTAMP
+  `).bind(userId, userId, email, displayName || null).run();
   await database.prepare(`
     INSERT INTO user_settings (owner_user_id, email)
     VALUES (?, ?)
@@ -54,56 +46,62 @@ export async function ensureUserSettings(database: D1Database, userId: string, e
 }
 
 export function requestOrigin(request: Request) {
-  const forwarded = request.headers.get("x-forwarded-proto") || "https";
-  const host = request.headers.get("host") || new URL(request.url).host;
-  return `${forwarded}://${host}`;
+  const configuredOrigin = runtimeEnv().NEXT_PUBLIC_APP_URL;
+  if (configuredOrigin) {
+    try {
+      const configuredUrl = new URL(configuredOrigin);
+      if (configuredUrl.protocol === "http:" || configuredUrl.protocol === "https:") return configuredUrl.origin;
+    } catch {
+      // Fall back to the platform request origin and let the OAuth provider reject a bad callback.
+    }
+  }
+  const forwardedProtocol = request.headers.get("x-forwarded-proto") || "https";
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const host = forwardedHost || request.headers.get("host") || new URL(request.url).host;
+  return `${forwardedProtocol}://${host}`;
 }
 
 export function databaseErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
-  if (message.includes("no such table") || message.includes("D1 binding") || message.includes("relation \"")) {
-    return "The persistent database is not initialized yet. Apply infra/postgres/schema.sql (PostgreSQL) or deploy the latest D1 migrations, then try again.";
+  if (message.includes("DATABASE_URL") || message.includes("relation \"") || message.includes("does not exist")) {
+    return "The PostgreSQL database is not initialized or is unavailable. Run npm run db:postgres:migrate against the configured Neon database, then try again.";
   }
   return message || "The database request failed.";
 }
 
-type NeonResult = { rows?: Array<Record<string, unknown>>; rowCount?: number | null };
-type BoundQuery = { text: string; params: unknown[] };
-
-/** Minimal D1-compatible prepared statement implemented with Neon HTTP SQL. */
-class PostgresPreparedStatement {
+class PostgresPreparedStatement implements PreparedStatement {
   constructor(private readonly sql: ReturnType<typeof neon>, private readonly queryText: string, private readonly values: unknown[] = []) {}
 
   bind(...values: unknown[]) {
     return new PostgresPreparedStatement(this.sql, this.queryText, values);
   }
 
-  toQuery(): BoundQuery {
+  toQuery() {
     return { text: this.queryText, params: this.values };
   }
 
-  async all<T extends Record<string, unknown>>() {
+  async all<T = Record<string, unknown>>() {
     const result = await this.execute();
-    return { results: (result.rows || []) as T[], success: true, meta: { changes: Number(result.rowCount || 0) } };
+    return { results: (result.rows || []) as T[], success: true as const, meta: { changes: Number(result.rowCount || 0) } };
   }
 
-  async first<T extends Record<string, unknown>>(columnName?: string) {
-    const row = ((await this.execute()).rows || [])[0] as T | undefined;
+  async first<T = Record<string, unknown>>(columnName?: string) {
+    const row = ((await this.execute()).rows || [])[0] as Record<string, unknown> | undefined;
     if (!row) return null;
-    return columnName ? (row[columnName] as unknown as T) : row;
+    return (columnName ? row[columnName] : row) as T;
   }
 
   async run() {
     const result = await this.execute();
-    return { results: [], success: true, meta: { changes: Number(result.rowCount || 0) } };
+    return { results: [], success: true as const, meta: { changes: Number(result.rowCount || 0) } };
   }
 
   private execute() {
-    return this.sql.query(this.queryText, this.values) as unknown as Promise<NeonResult>;
+    return this.sql.query(this.queryText, this.values) as unknown as Promise<QueryResult>;
   }
 }
 
-class PostgresD1Compatibility {
+class PostgresDatabase implements Database {
   private readonly sql: ReturnType<typeof neon>;
 
   constructor(connectionString: string) {
@@ -114,32 +112,34 @@ class PostgresD1Compatibility {
     return new PostgresPreparedStatement(this.sql, normalizePostgresQuery(queryText));
   }
 
-  async batch(statements: PostgresPreparedStatement[]) {
+  async batch(statements: PreparedStatement[]) {
     const results = await this.sql.transaction((transaction) => statements.map((statement) => {
+      if (!(statement instanceof PostgresPreparedStatement)) throw new Error("All batched statements must use the application PostgreSQL client.");
       const query = statement.toQuery();
       return transaction.query(query.text, query.params);
     }));
-    const changes = results.reduce((total, result) => total + Number((result as NeonResult).rowCount || 0), 0);
-    return { results: [], success: true, meta: { changes } };
+    const changes = results.reduce((total, result) => total + Number((result as QueryResult).rowCount || 0), 0);
+    return { results: [], success: true as const, meta: { changes } };
   }
 }
 
-const postgresDatabases = new Map<string, PostgresD1Compatibility>();
+const databases = new Map<string, PostgresDatabase>();
 
 function getPostgresDatabase(connectionString: string) {
-  let database = postgresDatabases.get(connectionString);
+  let database = databases.get(connectionString);
   if (!database) {
-    database = new PostgresD1Compatibility(connectionString);
-    postgresDatabases.set(connectionString, database);
+    database = new PostgresDatabase(connectionString);
+    databases.set(connectionString, database);
   }
   return database;
 }
 
+/** Convert the legacy bind shape to numbered PostgreSQL parameters. */
 function normalizePostgresQuery(queryText: string) {
   let query = queryText
     .replace(/datetime\('now',\s*'-30 day'\)/gi, "CURRENT_TIMESTAMP - INTERVAL '30 days'")
     .replace(/datetime\('now',\s*'-1 day'\)/gi, "CURRENT_TIMESTAMP - INTERVAL '1 day'")
-    .replace(/notifications_enabled\s*=\s*1\b/gi, "notifications_enabled = TRUE");
+    .replace(/notifications_enabled\s*=\s*1\b/gi, "notifications_enabled = 1");
   let index = 0;
   query = query.replace(/\?/g, () => `$${++index}`);
   return query;

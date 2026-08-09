@@ -1,223 +1,103 @@
 # Fresh Listings
 
-Fresh Listings is an authenticated job-search workspace for collecting, ranking, and tracking software-engineering opportunities. It stores each approved/public collection in the configured durable database (Cloudflare D1 by default, or managed PostgreSQL when `DATABASE_URL` is set), can sync new rows to a native Google Sheet that is Excel-compatible, sends an optional digest, and provides an optional AI fit analysis. Restricted portals are exposed through native-search links or user-assisted manual import until an official partner integration is approved.
+Fresh Listings is a production Next.js job-search workspace. It collects jobs from approved/public providers, stores each user’s searches in managed PostgreSQL, syncs saved jobs to Google Drive/Sheets, and supports optional AI, email, Telegram, and Socket.IO features.
 
-## Product surface
+## Production architecture
 
-- **Live search:** role, location, and 24-hour / 7-day / 30-day windows.
-- **Persistent history:** title, company, source, location, direct and application links, posting age, salary, skills, fit fields, search query, and capture time.
-- **Provider adapters:** SerpApi Google Jobs and public Greenhouse Job Board API. Each source has an explicit access policy; restricted portals never receive a user password, browser cookie, MFA code, or CAPTCHA token.
-- **Google sync:** OAuth with Drive, Sheets, and account-identity scopes; lets the user choose a Google account, creates a `Fresh Listings` Drive folder and `Fresh Listings Job Tracker` sheet inside it, then appends only unsynced rows.
-- **AI Fit Analyzer:** optional Gemini scoring with skill gaps and three portfolio-project suggestions.
-- **Digest:** optional Resend HTML email endpoint.
-- **Progress intelligence:** interactive Recharts analytics for saved momentum and source mix.
-- **Realtime updates:** the dashboard can connect to a separately hosted Socket.IO service with short-lived signed user tokens; searches emit progress and job-saved events.
-- **Telegram automation:** link one Telegram chat to the account, send natural-language search prompts, save results to the same history, and receive daily searched/saved totals.
+- Next.js App Router runs the UI and API routes on Vercel’s Node runtime.
+- Neon PostgreSQL is the only application database; there is no Cloudflare D1 or local fallback.
+- NextAuth uses Google OAuth and encrypted JWT sessions; job-board passwords and cookies are never collected.
+- SerpApi/Greenhouse provide approved/public discovery; restricted portals remain native-search links unless an official API is configured.
+- Google Drive/Sheets, Resend, Gemini, Telegram, Redis, and Socket.IO are optional integrations enabled by server variables.
 
-## Runtime secrets
+## Runtime flow
 
-Copy `.env.example` for local development. In production, set the same names in the Site's private runtime environment. Never commit real values, put them in frontend code, or paste them into a public issue.
+1. A user signs in with Google at `/api/auth/signin`.
+2. API routes resolve the NextAuth session and upsert the user in PostgreSQL.
+3. A scrape normalizes provider results, writes jobs and scrape metrics in one transaction, and emits realtime events.
+4. The Google integration creates a Fresh Listings folder and spreadsheet using least-privilege `drive.file` and Sheets scopes.
+5. Vercel Cron invokes the daily digest route with `CRON_SECRET`; Telegram and email are sent only when configured.
 
-| Variable | Required for | Notes |
-| --- | --- | --- |
-| `DATABASE_URL` | Managed PostgreSQL | Optional cutover; omit to use the current D1 binding |
-| `SERPAPI_API_KEY` | Automated cloud scraping | SerpApi Google Jobs key |
-| `GOOGLE_CLIENT_ID` | Drive/Sheets OAuth | Web application OAuth client |
-| `GOOGLE_CLIENT_SECRET` | Drive/Sheets OAuth | Keep secret |
-| `GOOGLE_TOKEN_ENCRYPTION_KEY` | Drive/Sheets OAuth | Base64-encoded 32-byte AES-GCM key |
-| `RESEND_API_KEY` | Email digest | Resend API key |
-| `EMAIL_FROM` | Email digest | Verified sender, such as `Fresh Listings <jobs@example.com>` |
-| `GEMINI_API_KEY` | AI Fit Analyzer | Gemini API key, server-side only |
-| `GEMINI_MODEL` | AI Fit Analyzer | Defaults to `gemini-2.0-flash` |
-| `TELEGRAM_BOT_TOKEN` | Telegram search + notifications | Create a bot with BotFather; server-side only |
-| `TELEGRAM_BOT_USERNAME` | Telegram dashboard linking | Bot username without the `@` |
-| `TELEGRAM_WEBHOOK_SECRET` | Telegram webhook authentication | Long random value configured in Telegram `setWebhook` |
-| `CRON_SECRET` | Daily digest endpoint | Long random value sent by your scheduler as a Bearer token |
-| `REALTIME_SERVICE_URL` | Live dashboard events | Public URL of the Node Socket.IO service |
-| `REALTIME_SESSION_SECRET` | Socket.IO user authentication | Shared long random HMAC secret; never expose it to the browser |
-| `REALTIME_EVENT_SECRET` | App-to-Socket.IO event ingress | Shared long random Bearer secret |
-| `FRONTEND_ORIGIN` | Socket.IO CORS | Exact dashboard origin, without a trailing slash |
+## Local setup
 
-For Google OAuth, register this exact redirect URI:
+- Install Node.js `>=22.13.0` and run `npm install`.
+- Copy `.env.example` to `.env.local`; `DATABASE_URL`, `AUTH_SECRET`, and Google sign-in values are required.
+- Apply the PostgreSQL schema with `npm run db:postgres:migrate`.
+- Start the app with `npm run dev`, then open `http://localhost:3000`.
+- Run `npm run typecheck`, `npm run lint`, and `npm test` before pushing.
 
-```text
-https://fresh-linkedin-listings.saurabhkaran11.chatgpt.site/api/google/oauth/callback
-```
+## Required environment variables
 
-## Prerequisites
+- `DATABASE_URL`: Neon pooled PostgreSQL URL with SSL; never expose it as `NEXT_PUBLIC_*`.
+- `AUTH_SECRET`, `AUTH_GOOGLE_CLIENT_ID`, and `AUTH_GOOGLE_CLIENT_SECRET`: NextAuth session and sign-in configuration.
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and a base64 32-byte `GOOGLE_TOKEN_ENCRYPTION_KEY`: Drive/Sheets OAuth and token encryption.
+- `SERPAPI_API_KEY`: live multi-source provider; without it, public/manual source links remain available.
+- `NEXT_PUBLIC_APP_URL`: canonical HTTPS origin used for OAuth callbacks and links.
 
-- Node.js `>=22.13.0`
+## Optional integrations
 
-## Quick Start
+- Resend: set `RESEND_API_KEY` and `EMAIL_FROM` for on-demand email digests.
+- Gemini: set `GEMINI_API_KEY` and `GEMINI_MODEL` for fit scoring and portfolio suggestions.
+- Telegram: set `TELEGRAM_BOT_TOKEN`, username, and webhook secret for prompt-driven searches and daily notifications.
+- Realtime: set `REALTIME_SERVICE_URL`, HMAC secrets, and `REDIS_URL` for the separate Socket.IO service.
+- Monitoring: set `SENTRY_DSN` and `OTEL_EXPORTER_OTLP_ENDPOINT` when an observability backend is available.
 
-```bash
-npm install
-npm run dev
-npm run build
-```
+## OAuth callback configuration
 
-The app uses vinext and Cloudflare-compatible output. D1 is declared as the
-`DB` binding in `.openai/hosting.json`; Drizzle migrations live under
-`drizzle/`. For the managed PostgreSQL cutover, apply
-`infra/postgres/schema.sql` with `npm run db:postgres:migrate` before setting
-`DATABASE_URL` in the hosted runtime.
+- Add `https://YOUR_DOMAIN/api/auth/callback/google` to the Google sign-in OAuth client.
+- Add `https://YOUR_DOMAIN/api/google/oauth/callback` to the Drive/Sheets OAuth client.
+- Add `http://localhost:3000/...` equivalents for local development.
+- Use separate OAuth clients and secrets for local, preview, and production environments.
+- Rotate `AUTH_SECRET` and encryption keys through the deployment provider, never in Git.
 
-## API routes
+## Deployment
 
-- `POST /api/scraper/run` — authenticate, collect, normalize, and persist jobs.
-- `GET /api/jobs` — public Greenhouse/native-search compatibility route.
-- `GET /api/google/status` — report Drive connection and provider readiness.
-- `GET /api/google/oauth/start` and `/api/google/oauth/callback` — Google OAuth.
-- `POST /api/google/sync` — append unsynced jobs to the user's Sheet.
-- `POST /api/digest/send` — send the latest saved jobs by email.
-- `POST /api/ai/fit` — score a saved job and persist the fit analysis.
-- `GET /api/analytics` — return saved/search totals and chart-ready daily/source series.
-- `GET /api/auth/session` — return the current signed-in workspace user or a safe sign-in path.
-- `GET /api/realtime/token` — mint a 15-minute signed Socket.IO session token.
-- `POST /api/telegram/link` — create a short-lived Telegram account-link token.
-- `GET /api/telegram/status` — report Telegram configuration and link state.
-- `POST /api/telegram/webhook` — receive authenticated Telegram updates and run prompt searches.
-- `POST /api/cron/daily-digest` — send daily searched/saved counts to linked Telegram chats.
+- Import `Saurabhkaran11/Fresh-listing` into Vercel as a Next.js project.
+- Add all required variables to Vercel Production and Preview scopes; do not commit `.env.local`.
+- Confirm the Neon schema is applied, then deploy with `npx vercel --prod` or the connected Git branch.
+- Configure Vercel Cron to call `/api/cron/daily-digest` with `Authorization: Bearer $CRON_SECRET`.
+- Set the production URL in `NEXT_PUBLIC_APP_URL` and update both Google OAuth clients before smoke testing.
 
-## Scalable realtime service
+## Database and migrations
 
-The current Sites deployment remains the web and D1 surface. Run the Socket.IO
-service as a small Node.js service on a Node-capable host:
+- Canonical schema: [`infra/postgres/schema.sql`](infra/postgres/schema.sql).
+- Idempotent migration command: `npm run db:postgres:migrate`.
+- Tables cover users, settings, jobs, scrape runs, OAuth state, Telegram links, and realtime events.
+- Apply migrations to a disposable preview database before production changes.
+- Back up Neon and verify restore procedures before changing the schema.
 
-```bash
-REALTIME_SESSION_SECRET="<same value as the web app>" \
-REALTIME_EVENT_SECRET="<same value as the web app>" \
-FRONTEND_ORIGIN="https://your-dashboard.example.com" \
-npm run realtime:start
-```
+## Job-source policy
 
-Expose `/health` for the host health check and set the resulting public URL as
-`REALTIME_SERVICE_URL` in the web app. The service never receives Google or
-Telegram credentials; it only accepts signed user tokens and an internal event
-secret.
+- Public Greenhouse boards and approved aggregator APIs are queried server-side.
+- LinkedIn, Indeed, Glassdoor, Built In, TrueUp, and similar portals are not credential-scraped.
+- The UI supplies native search links for restricted sources and records the source policy notice.
+- Add a new source behind a provider adapter, rate limit, terms review, normalization tests, and feature flag.
+- Never store portal passwords, cookies, MFA codes, or CAPTCHA material.
 
-After deployment, configure the Telegram webhook once (replace the placeholders
-with your values):
+## Security and operations
 
-```text
-https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook?url=https://your-dashboard.example.com/api/telegram/webhook&secret_token=<TELEGRAM_WEBHOOK_SECRET>
-```
+- All secrets are server-only environment variables and are excluded from Git.
+- Database queries are parameterized through the PostgreSQL adapter; user ownership is checked on every private route.
+- OAuth state expires quickly and refresh tokens are encrypted with AES-GCM before storage.
+- Cron and Telegram webhooks require independent secrets; realtime events use HMAC verification.
+- Monitor Vercel logs, Neon metrics, provider quotas, and error rates before opening public access.
 
-Configure a daily scheduler to `POST /api/cron/daily-digest` with
-`Authorization: Bearer <CRON_SECRET>`. The endpoint is intentionally separate
-from the scrape request so the scheduler can retry safely without exposing a
-cron credential to the browser.
+## Performance targets
 
-## Browser extension
+- Cached/static UI: p95 under 200 ms at the Vercel edge.
+- Authenticated read APIs: p95 under 500 ms with indexed PostgreSQL queries.
+- Scrape requests: asynchronous provider work with a 30-second route budget and progress events.
+- Google sync and email/Telegram delivery are bounded background-style operations and report provider failures explicitly.
+- Neon pooled connections and bounded result limits prevent connection exhaustion and unbounded responses.
 
-The downloadable `public/fresh-listings-extension.zip` is a user-assisted manual save helper. It does not scrape, automate, or inject code into any job portal. A user copies the details and URL from a page they chose to view, then the helper sends only those entered fields to their own Google Apps Script Drive archive.
+## Repository scripts
 
-The source-by-source access decision and official policy links are documented in
-[`docs/job-source-integration-policy.md`](docs/job-source-integration-policy.md).
+- `npm run dev` — local Next.js development server.
+- `npm run build` — production Next.js build.
+- `npm run start` — serve the production build.
+- `npm run typecheck` / `npm run lint` — static checks.
+- `npm test` — build plus Node smoke tests.
 
-## Git and deployment
+## License
 
-Keep the repository private because the application handles user-linked job history and OAuth state. Deployment uses the private Sites project and the `main` branch. Before publishing, run:
-
-```bash
-npm test
-npm run lint
-npm run build
-```
-
-## Production migration
-
-The current Sites deployment is the rollback surface. The target worldwide
-deployment separates a stock Next.js web app, a Render Node/Socket.IO service,
-managed PostgreSQL, and managed Redis. Read the detailed design and rollout
-runbook before moving production traffic:
-
-- [Production system design](docs/production-system-design.md) — service boundaries, security, latency budgets, SLOs, and failure handling.
-- [Production migration runbook](docs/production-migration-runbook.md) — accounts, migrations, Render/Vercel setup, cutover, and rollback.
-- [Neon PostgreSQL setup](docs/neon-setup.md) — provisioned project identifiers, secure `DATABASE_URL` handling, and remaining deployment inputs.
-- The Vercel project is recorded in the same setup document; it is Git-connected but intentionally has no production deployment yet.
-- `render.yaml` — Render realtime service configuration.
-- `infra/postgres/schema.sql` — PostgreSQL baseline for the migration.
-- `.env.production.example` — target production secret names and ownership.
-
-The API persistence boundary is now dual-mode: set `DATABASE_URL` to use
-managed PostgreSQL through the Neon serverless driver, or leave it unset to
-use the existing Cloudflare D1 binding. Run `npm run db:postgres:migrate` only
-after pointing `DATABASE_URL` at a staging database; the command applies the
-idempotent PostgreSQL baseline and never runs automatically during a request.
-
-The existing Vinext/Cloudflare-D1 root is intentionally not advertised as a
-Vercel deployment target. Complete the PostgreSQL and stock Next.js migration
-before attaching a Vercel production domain.
-
-## Workspace authentication
-
-Signed-in visitors receive both `oai-authenticated-user-id` and `oai-authenticated-user-email`. Private Sites require every visitor to sign in; public Sites may also have anonymous visitors, for whom neither header is present.
-
-The user ID is stable for the same user on the same Site and different across Sites. Email and name are intended for display or contact purposes.
-
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const userId = requestHeaders.get("oai-authenticated-user-id");
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
-```
-
-## Dispatch-owned ChatGPT sign-in
-
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
-
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- Use `chatGPTSignInPath(returnTo)` and `chatGPTSignOutPath(returnTo)` for
-  browser links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
-
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
-
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
-
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
-
-## Useful commands
-
-- `npm run dev`: start local development
-- `npm run build`: verify the vinext build output
-- `npm test`: build and run the rendered-experience checks
-- `npm run db:generate`: generate Drizzle migrations after schema changes
-
-## Learn more
-
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+See [`LICENSE`](LICENSE).

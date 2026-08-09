@@ -1,4 +1,5 @@
 import { runtimeEnv } from "./runtime-db";
+import type { Database } from "./runtime-db";
 
 const SHEET_HEADERS = ["Job title", "Company", "Source", "Location", "Posted", "Direct link", "Apply link", "Remote", "Experience", "Salary", "Fit score", "Skill gaps", "Captured at", "Search"];
 
@@ -31,12 +32,12 @@ export function oauthUrl(origin: string, state: string) {
   return url.toString();
 }
 
-export async function getSettings(database: D1Database, userId: string) {
+export async function getSettings(database: Database, userId: string) {
   const result = await database.prepare("SELECT google_account_email, google_drive_folder_id, spreadsheet_id, google_refresh_token, google_access_token, google_access_expires_at FROM user_settings WHERE owner_user_id = ?").bind(userId).first<UserSettings>();
   return result || { google_account_email: null, google_drive_folder_id: null, spreadsheet_id: null, google_refresh_token: null, google_access_token: null, google_access_expires_at: null };
 }
 
-export async function getGoogleAccessToken(database: D1Database, userId: string) {
+export async function getGoogleAccessToken(database: Database, userId: string) {
   const settings = await getSettings(database, userId);
   if (settings.google_access_token && settings.google_access_expires_at && settings.google_access_expires_at > Date.now() + 60_000) return decryptToken(settings.google_access_token);
   if (!settings.google_refresh_token) throw new Error("Connect Google Drive before syncing.");
@@ -49,7 +50,7 @@ export async function getGoogleAccessToken(database: D1Database, userId: string)
   return payload.access_token;
 }
 
-export async function syncJobsToSheet(database: D1Database, userId: string, jobs: Array<Record<string, unknown>>) {
+export async function syncJobsToSheet(database: Database, userId: string, jobs: Array<Record<string, unknown>>) {
   const accessToken = await getGoogleAccessToken(database, userId);
   const settings = await getSettings(database, userId);
   let folderId = settings.google_drive_folder_id;

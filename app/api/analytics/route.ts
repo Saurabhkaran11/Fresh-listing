@@ -1,11 +1,11 @@
-import { getChatGPTUser } from "../../chatgpt-auth";
-import { getD1 } from "../../../lib/runtime-db";
+import { getSessionUser } from "@/lib/session-user";
+import { getDatabase } from "../../../lib/runtime-db";
 
 export async function GET() {
-  const user = await getChatGPTUser();
+  const user = await getSessionUser();
   if (!user) return Response.json({ error: "Sign in to view analytics." }, { status: 401 });
 
-  const database = getD1();
+  const database = getDatabase();
   const [daily, sources, totals] = await Promise.all([
     database.prepare(`
       SELECT date(created_at) AS day, COUNT(*) AS saved

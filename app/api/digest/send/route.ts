@@ -1,13 +1,13 @@
-import { getChatGPTUser } from "../../../chatgpt-auth";
-import { databaseErrorMessage, ensureUserSettings, getD1, runtimeEnv } from "../../../../lib/runtime-db";
+import { getSessionUser } from "@/lib/session-user";
+import { databaseErrorMessage, ensureUserSettings, getDatabase, runtimeEnv } from "../../../../lib/runtime-db";
 
 export async function POST() {
-  const user = await getChatGPTUser();
-  if (!user) return Response.json({ error: "Sign in with ChatGPT to send a digest." }, { status: 401 });
+  const user = await getSessionUser();
+  if (!user) return Response.json({ error: "Sign in to continue to send a digest." }, { status: 401 });
   const config = runtimeEnv();
   if (!config.RESEND_API_KEY || !config.EMAIL_FROM) return Response.json({ error: "Email is not configured. Add RESEND_API_KEY and EMAIL_FROM in Site settings." }, { status: 503 });
   try {
-    const database = getD1();
+    const database = getDatabase();
     await ensureUserSettings(database, user.userId, user.email);
     const rows = await database.prepare("SELECT title, company, source, location, direct_url, posted_at FROM job_postings WHERE owner_user_id = ? ORDER BY created_at DESC LIMIT 50").bind(user.userId).all<{ title: string; company: string; source: string; location: string; direct_url: string; posted_at: string | null }>();
     const jobs = rows.results || [];

@@ -3,7 +3,7 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 
 test("renders the Fresh Listings experience", async () => {
-  const [page, insights, route, extension, popup, popupHtml, layout, scraperRoute, googleRoute, googleStatus, aiRoute, schema, hosting, telegramRoute, analyticsRoute, realtimeServer, sourcePolicy] = await Promise.all([
+  const [page, insights, route, extension, popup, popupHtml, layout, scraperRoute, googleRoute, googleStatus, aiRoute, runtimeDb, auth, telegramRoute, analyticsRoute, realtimeServer, sourcePolicy] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/insights-panel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/jobs/route.ts", import.meta.url), "utf8"),
@@ -15,8 +15,8 @@ test("renders the Fresh Listings experience", async () => {
     readFile(new URL("../app/api/google/sync/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/google/status/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai/fit/route.ts", import.meta.url), "utf8"),
-    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
-    readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
+    readFile(new URL("../lib/runtime-db.ts", import.meta.url), "utf8"),
+    readFile(new URL("../auth.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/telegram/webhook/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/analytics/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../realtime/server.mjs", import.meta.url), "utf8"),
@@ -45,12 +45,13 @@ test("renders the Fresh Listings experience", async () => {
   assert.match(googleRoute, /syncJobsToSheet/);
   assert.match(googleStatus, /googleAccountEmail|driveFolderUrl/);
   assert.match(aiRoute, /GEMINI_API_KEY/);
-  assert.match(schema, /jobPostings/);
-  assert.match(schema, /telegramLinks/);
+  assert.match(runtimeDb, /DATABASE_URL/);
+  assert.match(runtimeDb, /@neondatabase\/serverless/);
+  assert.doesNotMatch(runtimeDb, /D1Database|cloudflare/);
+  assert.match(auth, /NextAuth/);
   assert.match(telegramRoute, /TELEGRAM_WEBHOOK_SECRET|webhookSecret/);
   assert.match(analyticsRoute, /scrape_runs/);
   assert.match(realtimeServer, /Socket.IO|socket.io/);
-  assert.match(hosting, /"d1":\s*"DB"/);
   assert.match(sourcePolicy, /approved_api/);
   assert.match(sourcePolicy, /greenhouse/);
   assert.match(sourcePolicy, /trueup/);

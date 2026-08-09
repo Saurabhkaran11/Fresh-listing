@@ -1,4 +1,4 @@
-import { getD1, runtimeEnv } from "../../../../lib/runtime-db";
+import { getDatabase, runtimeEnv } from "../../../../lib/runtime-db";
 import { emitRealtimeEvent } from "../../../../lib/realtime";
 import { sendTelegramMessage, telegramConfig } from "../../../../lib/telegram";
 
@@ -8,7 +8,7 @@ export async function POST(request: Request) {
   if (!secret || supplied !== secret) return Response.json({ error: "Unauthorized cron request." }, { status: 401 });
   if (!telegramConfig().token) return Response.json({ skipped: true, reason: "Telegram is not configured." });
 
-  const database = getD1();
+  const database = getDatabase();
   const links = await database.prepare("SELECT owner_user_id AS ownerUserId, chat_id AS chatId FROM telegram_links WHERE notifications_enabled = 1").all<{ ownerUserId: string; chatId: string }>();
   let sent = 0;
   for (const link of links.results) {

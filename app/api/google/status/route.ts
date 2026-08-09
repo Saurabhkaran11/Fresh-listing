@@ -1,12 +1,12 @@
-import { getChatGPTUser } from "../../../chatgpt-auth";
-import { databaseErrorMessage, ensureUserSettings, getD1, runtimeEnv } from "../../../../lib/runtime-db";
+import { getSessionUser } from "@/lib/session-user";
+import { databaseErrorMessage, ensureUserSettings, getDatabase, runtimeEnv } from "../../../../lib/runtime-db";
 import { getSettings } from "../../../../lib/google";
 
 export async function GET() {
-  const user = await getChatGPTUser();
-  if (!user) return Response.json({ connected: false, error: "Sign in with ChatGPT to connect Google Drive." }, { status: 401 });
+  const user = await getSessionUser();
+  if (!user) return Response.json({ connected: false, error: "Sign in to continue to connect Google Drive." }, { status: 401 });
   try {
-    const database = getD1();
+    const database = getDatabase();
     await ensureUserSettings(database, user.userId, user.email);
     const settings = await getSettings(database, user.userId);
     const config = runtimeEnv();

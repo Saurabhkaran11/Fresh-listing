@@ -20,13 +20,11 @@ string is intentionally never committed to the repository.
 - Open the Neon project and copy the pooled connection string for the `main`
   branch; do not paste it into GitHub, chat, or a source file.
 - Store it as the encrypted `DATABASE_URL` variable in Vercel for the target
-  environment. Use a separate Neon branch and URL for preview/staging after
-  the first deployment is connected.
+  environment. Use a separate Neon branch and URL for preview/staging.
 - If CircleCI runs migrations, store the same value in a protected project
   context, preferably using a dedicated migration role rather than the runtime
   role.
-- The app selects PostgreSQL whenever `DATABASE_URL` is present and falls back
-  to Cloudflare D1 when it is absent.
+- The app requires PostgreSQL; requests fail fast when `DATABASE_URL` is absent.
 
 ## Validate locally or in staging
 
@@ -44,18 +42,14 @@ The schema has already been applied to the provisioned Neon branch.
 - Project ID: `prj_TfpvGIKVrAeUeWTAUmjqgIvkxRwR`
 - Team: `saurabhkaran11's projects`
 - Git repository: `Saurabhkaran11/Fresh-listing`
-- Current state: project created and Git-connected; no deployment has been
-  promoted yet because the stock Next.js/Vercel runtime migration is still
-  pending.
-- Current framework preset: `Other`, matching the existing Vinext/Cloudflare
-  checkout. Update this to Next.js only when the Vercel-compatible app entry
-  point is merged.
+- Current state: project created and Git-connected; deploy after production
+  environment variables and Google callback URLs are configured.
+- Framework: Next.js, detected from `next` and the `next build` script.
 
-## Remaining deployment inputs
+## Deployment inputs
 
 - Vercel project/team and production domain.
-- Whether existing D1 data should be imported or the new database should start
-  empty.
+- Whether any legacy export should be imported into the provisioned schema.
 - Render (or another Node host) for the Socket.IO service and its Redis URL.
 - Google OAuth, Telegram, provider, email, AI, and application-signing secrets.
 - CircleCI organization/project slug if CI should be enabled now.

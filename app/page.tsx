@@ -47,7 +47,7 @@ export default function Home() {
   const selectedWindow = useMemo(() => windows.find((window) => window.value === timeWindow) ?? windows[0], [timeWindow]);
 
   useEffect(() => {
-    fetch("/api/auth/session", { cache: "no-store" }).then((response) => response.json()).then((data: SessionState) => setSession(data)).catch(() => setSession({ authenticated: false, signInPath: "/signin-with-chatgpt?return_to=%2F" }));
+    fetch("/api/auth/session", { cache: "no-store" }).then((response) => response.json()).then((data: SessionState) => setSession(data)).catch(() => setSession({ authenticated: false, signInPath: "/api/auth/signin?callbackUrl=%2F" }));
   }, []);
 
   useEffect(() => {
@@ -88,8 +88,6 @@ export default function Home() {
     const link = document.createElement("a"); link.href = url; link.download = `fresh-listings-${timeWindow.replace("r", "")}.csv`; link.click(); URL.revokeObjectURL(url);
   }
 
-  function connectGoogle() { window.location.href = "/api/google/oauth/start"; }
-
   async function syncToSheet() {
     setAutomationBusy(true); setAutomationMessage("");
     try {
@@ -127,7 +125,7 @@ export default function Home() {
   }
 
   if (!session) return <main className="auth-shell"><div className="auth-card"><span className="brand-mark" aria-hidden="true"><i /></span><p className="section-kicker">Fresh Listings</p><h1>Preparing your private workspace…</h1><p>Checking your secure session before loading your saved job history.</p><span className="spinner auth-spinner" /></div></main>;
-  if (!session.authenticated) return <main className="auth-shell"><div className="auth-card"><span className="brand-mark" aria-hidden="true"><i /></span><p className="section-kicker">Private job workspace</p><h1>Sign in to start collecting.</h1><p>Your jobs, Google Drive connection, Telegram link, and progress analytics are private to your account.</p><a className="search-button auth-button" href={session.signInPath || "/signin-with-chatgpt?return_to=%2F"}>Sign in with ChatGPT ↗</a></div></main>;
+  if (!session.authenticated) return <main className="auth-shell"><div className="auth-card"><span className="brand-mark" aria-hidden="true"><i /></span><p className="section-kicker">Private job workspace</p><h1>Sign in to start collecting.</h1><p>Your jobs, Google Drive connection, Telegram link, and progress analytics are private to your account.</p><a className="search-button auth-button" href={session.signInPath || "/api/auth/signin?callbackUrl=%2F"}>Sign in to continue ↗</a></div></main>;
 
   return (
     <main className="app-shell">
@@ -163,7 +161,7 @@ export default function Home() {
 
       <section className="archive-card" aria-label="Google Drive archive">
         <div><p className="section-kicker">Google Drive + Excel-compatible tracker</p><h2>{googleStatus.connected ? "Your cloud archive is connected." : "Connect your cloud archive."}</h2><p>Every saved listing is written to a native Google Sheet inside a Fresh Listings folder in the selected Google Drive account. You can open it in Drive or download it as Excel.</p>{googleStatus.connected && <p className="connected-account">Google account: <strong>{googleStatus.googleAccountEmail || "Connected account"}</strong></p>}</div>
-        <div className="archive-actions"><a className="drive-button" href={googleStatus.spreadsheetUrl || DRIVE_ARCHIVE_URL} target="_blank" rel="noreferrer">{googleStatus.spreadsheetUrl ? "Open job tracker" : "Open job archive"} <span aria-hidden="true">↗</span></a>{googleStatus.driveFolderUrl && <a className="extension-button" href={googleStatus.driveFolderUrl} target="_blank" rel="noreferrer">Open Drive folder ↗</a>}<button className="extension-button" type="button" onClick={connectGoogle}>{googleStatus.connected ? "Switch Google account" : "Connect Google Drive"}</button><a className="extension-button" href="/fresh-listings-extension.zip" download>Manual save helper <span aria-hidden="true">↓</span></a></div>
+        <div className="archive-actions"><a className="drive-button" href={googleStatus.spreadsheetUrl || DRIVE_ARCHIVE_URL} target="_blank" rel="noreferrer">{googleStatus.spreadsheetUrl ? "Open job tracker" : "Open job archive"} <span aria-hidden="true">↗</span></a>{googleStatus.driveFolderUrl && <a className="extension-button" href={googleStatus.driveFolderUrl} target="_blank" rel="noreferrer">Open Drive folder ↗</a>}<a className="extension-button" href="/api/google/oauth/start">{googleStatus.connected ? "Switch Google account" : "Connect Google Drive"}</a><a className="extension-button" href="/fresh-listings-extension.zip" download>Manual save helper <span aria-hidden="true">↓</span></a></div>
       </section>
 
       <section className="automation-card" aria-label="Automation controls">

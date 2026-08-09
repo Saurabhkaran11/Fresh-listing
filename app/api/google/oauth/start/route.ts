@@ -1,12 +1,12 @@
-import { getChatGPTUser } from "../../../../chatgpt-auth";
-import { ensureUserSettings, getD1, requestOrigin } from "../../../../../lib/runtime-db";
+import { getSessionUser } from "@/lib/session-user";
+import { ensureUserSettings, getDatabase, requestOrigin } from "../../../../../lib/runtime-db";
 import { oauthUrl } from "../../../../../lib/google";
 
 export async function GET(request: Request) {
-  const user = await getChatGPTUser();
-  if (!user) return Response.json({ error: "Sign in with ChatGPT before connecting Google Drive." }, { status: 401 });
+  const user = await getSessionUser();
+  if (!user) return Response.json({ error: "Sign in to continue before connecting Google Drive." }, { status: 401 });
   try {
-    const database = getD1();
+    const database = getDatabase();
     await ensureUserSettings(database, user.userId, user.email);
     const state = `${crypto.randomUUID()}${crypto.randomUUID()}`;
     await database.prepare("INSERT INTO oauth_states (state, owner_user_id, expires_at) VALUES (?, ?, ?)").bind(state, user.userId, Date.now() + 10 * 60 * 1000).run();

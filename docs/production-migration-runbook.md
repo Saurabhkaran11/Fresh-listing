@@ -1,10 +1,10 @@
 # Production Migration Runbook
 
-This runbook is intentionally staged so the existing private Sites deployment remains a rollback target until the new stack passes smoke tests.
+This runbook describes the completed production migration to stock Next.js, Vercel, Neon PostgreSQL, and the separately hosted realtime service. The old Sites/D1 runtime is not part of the application.
 
 ## 1. Accounts and access
 
-- Create Vercel, Render, managed PostgreSQL, managed Redis, Google Cloud, Telegram, job-provider, and error-monitoring accounts.
+- Create Vercel, Render (realtime), managed PostgreSQL, managed Redis, Google Cloud, Telegram, job-provider, and error-monitoring accounts.
 - Give CI only repository read/build access; keep production secrets in each platform’s secret manager.
 - Use separate staging and production OAuth clients, databases, Redis instances, and Telegram bots.
 - Choose one primary data region close to PostgreSQL; record the region and data-residency decision.
@@ -21,11 +21,9 @@ This runbook is intentionally staged so the existing private Sites deployment re
 - Provision a production PostgreSQL database with automated backups, TLS, connection pooling, and a restore test.
 - Apply `infra/postgres/schema.sql` through a real migration tool; do not edit production tables manually.
 - Create a least-privileged runtime role and a separate migration role with DDL permission.
-- Import users/jobs from D1 using a checksum report before enabling production writes.
+- Apply the canonical schema to the Neon branch before enabling production writes.
+- If legacy exports exist, import them with a one-time checksum report; no D1 runtime code remains.
 
-The application now has a database compatibility boundary in
-`lib/runtime-db.ts`: `DATABASE_URL` selects PostgreSQL through the Neon
-serverless driver, while omitting it preserves the current D1 rollback path.
 For a staging bootstrap, set `DATABASE_URL` locally and run:
 
 ```bash
@@ -33,10 +31,7 @@ npm run db:postgres:migrate
 npm test
 ```
 
-Do not set `DATABASE_URL` in the hosted production environment until the
-schema is applied, the D1 export has been reconciled, and the staging smoke
-test has passed. The application deliberately does not create tables during a
-request.
+The application requires `DATABASE_URL` and deliberately does not create tables during a request.
 
 ## 4. Redis bootstrap
 
@@ -54,7 +49,7 @@ request.
 
 ## 6. Vercel web application
 
-- Deploy only the migrated stock Next.js app; the current Vinext/Cloudflare-D1 root is a rollback artifact, not a Vercel target.
+- Deploy the stock Next.js app; Vercel must detect the Next.js framework and build with `next build`.
 - Set `DATABASE_URL`, `AUTH_SECRET`, Google OAuth values, provider keys, and integration secrets in Vercel’s production environment.
 - Add the Vercel production origin to Google OAuth, Telegram webhook configuration, and realtime CORS.
 - Run a preview deployment against staging services before promoting production.
@@ -78,11 +73,11 @@ request.
 - Compare job counts, source distributions, and daily metrics between the old and new stacks for a representative test account.
 - Measure the latency budgets in `production-system-design.md` from at least three regions.
 - Confirm Google sync, Telegram, email, realtime, rate limits, backups, and error alerts before DNS cutover.
-- Keep the Sites URL live and read-only for rollback during the observation window.
+- Keep the previous Vercel deployment available for instant rollback during the observation window.
 
 ## 10. Rollback
 
-- Repoint the frontend/API traffic to the previous deployment if authentication or data integrity checks fail.
+- Promote the previous Vercel deployment if authentication or data integrity checks fail.
 - Stop queue consumers before reverting schema changes; never roll back a database migration without a tested down plan.
 - Drain or replay outbox events after recovery; use idempotency keys to prevent duplicate jobs and Sheets rows.
-- Record incident timeline, user impact, metrics, and the exact commit/version used for recovery.
+- Record the incident timeline, user impact, metrics, and exact commit/version used for recovery.

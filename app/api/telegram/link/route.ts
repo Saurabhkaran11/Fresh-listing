@@ -1,14 +1,14 @@
-import { getChatGPTUser } from "../../../chatgpt-auth";
-import { ensureUserSettings, getD1 } from "../../../../lib/runtime-db";
+import { getSessionUser } from "@/lib/session-user";
+import { ensureUserSettings, getDatabase } from "../../../../lib/runtime-db";
 import { secureToken } from "../../../../lib/security";
 import { isTelegramConfigured, telegramConfig } from "../../../../lib/telegram";
 
 export async function POST() {
-  const user = await getChatGPTUser();
+  const user = await getSessionUser();
   if (!user) return Response.json({ error: "Sign in to link Telegram." }, { status: 401 });
   if (!isTelegramConfigured()) return Response.json({ error: "Telegram is not configured yet. Add TELEGRAM_BOT_TOKEN on the server." }, { status: 503 });
 
-  const database = getD1();
+  const database = getDatabase();
   await ensureUserSettings(database, user.userId, user.email);
   const token = secureToken(18);
   const expiresAt = Date.now() + 15 * 60 * 1000;

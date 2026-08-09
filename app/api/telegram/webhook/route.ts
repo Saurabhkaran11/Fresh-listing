@@ -1,4 +1,4 @@
-import { getD1, databaseErrorMessage } from "../../../../lib/runtime-db";
+import { getDatabase, databaseErrorMessage } from "../../../../lib/runtime-db";
 import { clampText } from "../../../../lib/security";
 import { emitRealtimeEvent } from "../../../../lib/realtime";
 import { formatJobDigest, parseTelegramPrompt, sendTelegramMessage, telegramConfig } from "../../../../lib/telegram";
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   if (!chatId || !text) return Response.json({ ok: true });
 
   try {
-    const database = getD1();
+    const database = getDatabase();
     const startToken = text.match(/^\/start(?:\s+([A-Za-z0-9_-]+))?/i)?.[1];
     if (startToken) {
       const token = await database.prepare("SELECT token, owner_user_id AS ownerUserId FROM telegram_link_tokens WHERE token = ? AND expires_at > ? AND used_at IS NULL LIMIT 1").bind(startToken, Date.now()).first<{ token: string; ownerUserId: string }>();

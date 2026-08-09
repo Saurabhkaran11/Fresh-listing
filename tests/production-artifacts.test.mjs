@@ -25,6 +25,10 @@ test("production migration artifacts define the durable and realtime boundaries"
   assert.match(realtime, /SIGTERM/);
   assert.match(runtimeDb, /DATABASE_URL/);
   assert.match(runtimeDb, /@neondatabase\/serverless/);
+  assert.match(runtimeDb, /getDatabase/);
+  assert.doesNotMatch(runtimeDb, /D1Database|cloudflare:workers/);
   assert.match(packageJson, /db:postgres:migrate/);
+  assert.match(packageJson, /"build": "next build --webpack"/);
+  assert.doesNotMatch(packageJson, /vinext|wrangler|drizzle/);
   assert.match(migration, /DATABASE_URL is required/);
 });

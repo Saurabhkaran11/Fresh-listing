@@ -1,5 +1,5 @@
-import { getChatGPTUser } from "../../../chatgpt-auth";
-import { databaseErrorMessage, ensureUserSettings, getD1 } from "../../../../lib/runtime-db";
+import { getSessionUser } from "@/lib/session-user";
+import { databaseErrorMessage, ensureUserSettings, getDatabase } from "../../../../lib/runtime-db";
 import { emitRealtimeEvent } from "../../../../lib/realtime";
 import { collectJobs } from "../../../../lib/scraper";
 import { normalizeSources } from "../../../../lib/source-policy";
@@ -7,8 +7,8 @@ import { normalizeSources } from "../../../../lib/source-policy";
 const WINDOWS = new Set(["r86400", "r604800", "r2592000"]);
 
 export async function POST(request: Request) {
-  const user = await getChatGPTUser();
-  if (!user) return Response.json({ error: "Sign in with ChatGPT to run a saved search." }, { status: 401 });
+  const user = await getSessionUser();
+  if (!user) return Response.json({ error: "Sign in to continue to run a saved search." }, { status: 401 });
 
   const body = await request.json().catch(() => ({})) as { keywords?: string; location?: string; timeWindow?: string; sources?: string[]; greenhouseBoards?: string[] };
   const keywords = clean(body.keywords, 120);
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   const greenhouseBoards = Array.isArray(body.greenhouseBoards) ? body.greenhouseBoards.slice(0, 12).map((value) => clean(value, 80)) : [];
   if (!keywords) return Response.json({ error: "A job title or keyword is required." }, { status: 400 });
 
-  const database = getD1();
+  const database = getDatabase();
   await ensureUserSettings(database, user.userId, user.email);
   const startedAt = new Date().toISOString();
   try {

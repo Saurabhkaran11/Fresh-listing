@@ -1,6 +1,6 @@
 # Fresh Listings — Production System Design
 
-Status: migration baseline, 2026-08-09. The current private Sites deployment remains the rollback version while the production platform is moved to a stock Next.js + Node architecture.
+Status: production baseline, 2026-08-09. The application runs on stock Next.js + Node, Vercel, Neon PostgreSQL, and the separately hosted realtime service.
 
 ## 1. Product goals
 
@@ -135,7 +135,7 @@ flowchart LR
 - Enable automated PostgreSQL backups and test a point-in-time restore at least monthly.
 - Keep job history indefinitely by default; apply configurable retention to raw provider payloads and outbox records.
 - Redis is reconstructable; PostgreSQL, encrypted integration tokens, and migration files are not disposable.
-- Maintain a documented rollback to the last Vercel/Render version and the current Sites deployment.
+- Maintain a documented rollback to the last Vercel/Render version; database backups remain the recovery source of truth.
 
 ## 17. Capacity and cost controls
 
@@ -153,10 +153,10 @@ flowchart LR
 
 ## 19. Migration and rollout
 
-- Phase 0: keep the current Sites version live and create staging PostgreSQL/Redis services.
-- Phase 1: migrate schema and users, then run dual-write verification for jobs, runs, and integration metadata.
-- Phase 2: deploy Next.js/API and Render workers behind a feature flag; compare counts and latency with Sites.
-- Phase 3: switch DNS, enable Telegram/cron, observe for 24–72 hours, then retire D1 only after a restore test.
+- Phase 0: provision Vercel, Neon, Redis, Google OAuth, and the realtime host.
+- Phase 1: apply the PostgreSQL schema and configure production/preview environment variables.
+- Phase 2: deploy Next.js and the realtime service, then run the authenticated, scrape, sync, Telegram, and cron smoke tests.
+- Phase 3: monitor latency and errors, promote the deployment, and use Vercel rollback plus Neon restore for incidents.
 
 ## 20. Definition of production-ready
 

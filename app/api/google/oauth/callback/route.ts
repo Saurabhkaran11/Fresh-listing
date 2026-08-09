@@ -1,6 +1,6 @@
 import { encryptToken, googleConfig } from "../../../../../lib/google";
-import { getChatGPTUser } from "../../../../chatgpt-auth";
-import { databaseErrorMessage, getD1, requestOrigin } from "../../../../../lib/runtime-db";
+import { getSessionUser } from "@/lib/session-user";
+import { databaseErrorMessage, getDatabase, requestOrigin } from "../../../../../lib/runtime-db";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -11,9 +11,9 @@ export async function GET(request: Request) {
   if (error) return Response.redirect(`${origin}/?google=cancelled`);
   if (!code || !state) return Response.redirect(`${origin}/?google=missing`);
   try {
-    const user = await getChatGPTUser();
+    const user = await getSessionUser();
     if (!user) return Response.redirect(`${origin}/?google=signin-required`);
-    const database = getD1();
+    const database = getDatabase();
     const savedState = await database.prepare("SELECT owner_user_id, expires_at FROM oauth_states WHERE state = ?").bind(state).first<{ owner_user_id: string; expires_at: number }>();
     if (!savedState || savedState.owner_user_id !== user.userId || savedState.expires_at < Date.now()) return Response.redirect(`${origin}/?google=invalid-state`);
     await database.prepare("DELETE FROM oauth_states WHERE state = ?").bind(state).run();

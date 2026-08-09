@@ -1,8 +1,7 @@
 -- Fresh Listings production PostgreSQL baseline.
 --
--- Apply this file once with a migration tool or psql after DATABASE_URL is
--- provisioned. It intentionally mirrors the D1 compatibility boundary used by
--- the API routes, so PostgreSQL can be enabled without a flag-day rewrite.
+-- Apply this file with the PostgreSQL migration command after DATABASE_URL is
+-- provisioned. PostgreSQL is the canonical production data store.
 -- Never paste this into production without a backup and a staging run first.
 
 CREATE TABLE IF NOT EXISTS users (

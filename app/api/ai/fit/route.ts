@@ -1,15 +1,15 @@
-import { getChatGPTUser } from "../../../chatgpt-auth";
-import { databaseErrorMessage, getD1, runtimeEnv } from "../../../../lib/runtime-db";
+import { getSessionUser } from "@/lib/session-user";
+import { databaseErrorMessage, getDatabase, runtimeEnv } from "../../../../lib/runtime-db";
 
 export async function POST(request: Request) {
-  const user = await getChatGPTUser();
-  if (!user) return Response.json({ error: "Sign in with ChatGPT to analyze job fit." }, { status: 401 });
+  const user = await getSessionUser();
+  if (!user) return Response.json({ error: "Sign in to continue to analyze job fit." }, { status: 401 });
   const config = runtimeEnv();
   if (!config.GEMINI_API_KEY) return Response.json({ error: "AI Fit Analyzer is not configured. Add GEMINI_API_KEY in Site settings." }, { status: 503 });
   const body = await request.json().catch(() => ({})) as { externalId?: string; candidateSkills?: string };
   if (!body.externalId) return Response.json({ error: "A job id is required." }, { status: 400 });
   try {
-    const database = getD1();
+    const database = getDatabase();
     const job = await database.prepare("SELECT external_id, title, company, description, skills_json FROM job_postings WHERE owner_user_id = ? AND external_id = ?").bind(user.userId, body.externalId).first<{ external_id: string; title: string; company: string; description: string; skills_json: string }>();
     if (!job) return Response.json({ error: "Save the job before analyzing fit." }, { status: 404 });
     const model = String(config.GEMINI_MODEL || "gemini-2.0-flash");
