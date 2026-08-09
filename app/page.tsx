@@ -9,7 +9,7 @@ type Source = "linkedin" | "indeed" | "builtin" | "glassdoor" | "greenhouse" | "
 type Job = { id: string; title: string; company: string; location: string; posted: string; link: string; source: Source; capturedAt: string; fitScore?: number };
 type SourceLink = { source: Source; label: string; url: string; note: string };
 type SearchResponse = { jobs: Job[]; exhausted: boolean; scanned: number; notice?: string; sourceLinks?: SourceLink[]; provider?: string; persistedCount?: number };
-type GoogleStatus = { connected: boolean; spreadsheetUrl: string | null; googleConfigured?: boolean; providerConfigured?: boolean; emailConfigured?: boolean; error?: string };
+type GoogleStatus = { connected: boolean; googleAccountEmail?: string | null; spreadsheetUrl: string | null; driveFolderUrl?: string | null; googleConfigured?: boolean; providerConfigured?: boolean; emailConfigured?: boolean; error?: string };
 type SessionState = { authenticated: boolean; signInPath?: string; user?: { displayName: string; email: string } };
 
 const DRIVE_ARCHIVE_URL = "https://docs.google.com/document/d/1NVTbiB73OGInnZHU7R70OSMGAIE1jINwYPWT_q1b-q0/edit";
@@ -169,8 +169,8 @@ export default function Home() {
       </section>
 
       <section className="archive-card" aria-label="Google Drive archive">
-        <div><p className="section-kicker">Google Drive + Excel-compatible tracker</p><h2>{googleStatus.connected ? "Your cloud archive is connected." : "Connect your cloud archive."}</h2><p>Scraped listings are persisted here first, then synced to a native Google Sheet you can open in Drive or download as Excel.</p></div>
-        <div className="archive-actions"><a className="drive-button" href={googleStatus.spreadsheetUrl || DRIVE_ARCHIVE_URL} target="_blank" rel="noreferrer">{googleStatus.spreadsheetUrl ? "Open job tracker" : "Open job archive"} <span aria-hidden="true">↗</span></a><button className="extension-button" type="button" onClick={connectGoogle}>{googleStatus.connected ? "Reconnect Google" : "Connect Google Drive"}</button><a className="extension-button" href="/fresh-listings-extension.zip" download>Free LinkedIn extension <span aria-hidden="true">↓</span></a></div>
+        <div><p className="section-kicker">Google Drive + Excel-compatible tracker</p><h2>{googleStatus.connected ? "Your cloud archive is connected." : "Connect your cloud archive."}</h2><p>Every saved listing is written to a native Google Sheet inside a Fresh Listings folder in the selected Google Drive account. You can open it in Drive or download it as Excel.</p>{googleStatus.connected && <p className="connected-account">Google account: <strong>{googleStatus.googleAccountEmail || "Connected account"}</strong></p>}</div>
+        <div className="archive-actions"><a className="drive-button" href={googleStatus.spreadsheetUrl || DRIVE_ARCHIVE_URL} target="_blank" rel="noreferrer">{googleStatus.spreadsheetUrl ? "Open job tracker" : "Open job archive"} <span aria-hidden="true">↗</span></a>{googleStatus.driveFolderUrl && <a className="extension-button" href={googleStatus.driveFolderUrl} target="_blank" rel="noreferrer">Open Drive folder ↗</a>}<button className="extension-button" type="button" onClick={connectGoogle}>{googleStatus.connected ? "Switch Google account" : "Connect Google Drive"}</button><a className="extension-button" href="/fresh-listings-extension.zip" download>Free LinkedIn extension <span aria-hidden="true">↓</span></a></div>
       </section>
 
       <section className="automation-card" aria-label="Automation controls">

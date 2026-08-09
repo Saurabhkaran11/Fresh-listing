@@ -3,7 +3,7 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 
 test("renders the Fresh Listings experience", async () => {
-  const [page, insights, route, extension, popup, layout, scraperRoute, googleRoute, aiRoute, schema, hosting, telegramRoute, analyticsRoute, realtimeServer] = await Promise.all([
+  const [page, insights, route, extension, popup, layout, scraperRoute, googleRoute, googleStatus, aiRoute, schema, hosting, telegramRoute, analyticsRoute, realtimeServer] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/insights-panel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/jobs/route.ts", import.meta.url), "utf8"),
@@ -12,6 +12,7 @@ test("renders the Fresh Listings experience", async () => {
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/scraper/run/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/google/sync/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/google/status/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai/fit/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
     readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
@@ -38,6 +39,7 @@ test("renders the Fresh Listings experience", async () => {
   assert.match(insights, /socket.io-client/);
   assert.match(scraperRoute, /SERPAPI_API_KEY|collectJobs/);
   assert.match(googleRoute, /syncJobsToSheet/);
+  assert.match(googleStatus, /googleAccountEmail|driveFolderUrl/);
   assert.match(aiRoute, /GEMINI_API_KEY/);
   assert.match(schema, /jobPostings/);
   assert.match(schema, /telegramLinks/);

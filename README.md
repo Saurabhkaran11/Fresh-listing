@@ -7,7 +7,7 @@ Fresh Listings is an authenticated job-search workspace for collecting, ranking,
 - **Live search:** role, location, and 24-hour / 7-day / 30-day windows.
 - **Persistent history:** title, company, source, location, direct and application links, posting age, salary, skills, fit fields, search query, and capture time.
 - **Provider adapter:** SerpApi Google Jobs JSON, with a LinkedIn public-feed fallback and the browser extension for local collection.
-- **Google sync:** OAuth with `drive.file` and `spreadsheets` scopes; creates a `Fresh Listings Job Tracker` sheet and appends only unsynced rows.
+- **Google sync:** OAuth with Drive, Sheets, and account-identity scopes; lets the user choose a Google account, creates a `Fresh Listings` Drive folder and `Fresh Listings Job Tracker` sheet inside it, then appends only unsynced rows.
 - **AI Fit Analyzer:** optional Gemini scoring with skill gaps and three portfolio-project suggestions.
 - **Digest:** optional Resend HTML email endpoint.
 - **Progress intelligence:** interactive Recharts analytics for saved momentum and source mix.

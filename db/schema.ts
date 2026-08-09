@@ -50,6 +50,8 @@ export const userSettings = sqliteTable("user_settings", {
   selectedSourcesJson: text("selected_sources_json").notNull().default("[\"google_jobs\",\"greenhouse\"]"),
   digestEnabled: integer("digest_enabled", { mode: "boolean" }).notNull().default(false),
   digestHour: text("digest_hour").notNull().default("08:00"),
+  googleAccountEmail: text("google_account_email"),
+  googleDriveFolderId: text("google_drive_folder_id"),
   spreadsheetId: text("spreadsheet_id"),
   googleRefreshToken: text("google_refresh_token"),
   googleAccessToken: text("google_access_token"),
