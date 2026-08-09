@@ -2,9 +2,10 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import InsightsPanel from "./components/insights-panel";
+import { AUTOMATED_SOURCE_IDS, SOURCE_POLICIES, type JobSource } from "../lib/source-policy";
 
 type TimeWindow = "r86400" | "r604800" | "r2592000";
-type Source = "linkedin" | "indeed" | "builtin" | "glassdoor" | "greenhouse" | "trueup" | "google_jobs";
+type Source = JobSource;
 
 type Job = { id: string; title: string; company: string; location: string; posted: string; link: string; source: Source; capturedAt: string; fitScore?: number };
 type SourceLink = { source: Source; label: string; url: string; note: string };
@@ -18,15 +19,7 @@ const windows: { value: TimeWindow; label: string; detail: string }[] = [
   { value: "r604800", label: "Last 7 days", detail: "This week" },
   { value: "r2592000", label: "Last 30 days", detail: "This month" },
 ];
-const sourceOptions: { id: Source; label: string; detail: string }[] = [
-  { id: "linkedin", label: "LinkedIn", detail: "Free extension" },
-  { id: "indeed", label: "Indeed", detail: "Native search" },
-  { id: "builtin", label: "Built In", detail: "Native search" },
-  { id: "glassdoor", label: "Glassdoor", detail: "Native search" },
-  { id: "greenhouse", label: "Greenhouse", detail: "Board API" },
-  { id: "trueup", label: "TrueUp", detail: "Native search" },
-  { id: "google_jobs", label: "Google Jobs", detail: "Automated feed" },
-];
+const sourceOptions: { id: Source; label: string; detail: string }[] = SOURCE_POLICIES.map(({ id, label, detail }) => ({ id, label, detail }));
 const popularSearches = ["Product designer", "Data analyst", "Software engineer"];
 
 function csvCell(value: string) { return `"${value.replaceAll('"', '""')}"`; }
@@ -36,7 +29,7 @@ export default function Home() {
   const [keywords, setKeywords] = useState("Product designer");
   const [location, setLocation] = useState("United States");
   const [timeWindow, setTimeWindow] = useState<TimeWindow>("r86400");
-  const [selectedSources, setSelectedSources] = useState<Source[]>(sourceOptions.map((source) => source.id));
+  const [selectedSources, setSelectedSources] = useState<Source[]>([...AUTOMATED_SOURCE_IDS]);
   const [greenhouseBoards, setGreenhouseBoards] = useState("");
   const [jobs, setJobs] = useState<Job[]>([]);
   const [sourceLinks, setSourceLinks] = useState<SourceLink[]>([]);
@@ -147,7 +140,7 @@ export default function Home() {
       <section className="hero" aria-labelledby="hero-title">
         <p className="eyebrow"><span>✦</span> The signal, in one place</p>
         <h1 id="hero-title">Don&apos;t miss the <em>window.</em></h1>
-        <p className="hero-copy">Collect fresh public listings, open native searches on every major board, and save the opportunities worth keeping to your Drive archive.</p>
+        <p className="hero-copy">Collect fresh public and approved listings, open native searches on every major board, and save the opportunities worth keeping to your Drive archive.</p>
       </section>
 
       <section className="search-card" id="search" aria-label="Multi-source job search">
@@ -161,7 +154,7 @@ export default function Home() {
           <div className="window-row"><span className="window-label">Posted</span><div className="window-picker" role="radiogroup" aria-label="Posting date range">{windows.map((window) => <button key={window.value} type="button" role="radio" aria-checked={timeWindow === window.value} className={timeWindow === window.value ? "window-option selected" : "window-option"} onClick={() => setTimeWindow(window.value)}><span>{window.label}</span><small>{window.detail}</small></button>)}</div><div className="popular"><span>Try:</span>{popularSearches.map((search) => <button type="button" key={search} onClick={() => setKeywords(search)}>{search}</button>)}</div></div>
 
           <div className="sources-row">
-            <div className="sources-copy"><span className="window-label">Sources</span><small>Use the free extension for live LinkedIn collection; open native searches everywhere else.</small></div>
+            <div className="sources-copy"><span className="window-label">Sources</span><small>Google Jobs and public Greenhouse boards can run automatically. Restricted portals stay native-search/manual until approved access is available.</small></div>
             <div className="source-picker" role="group" aria-label="Job sources">{sourceOptions.map((source) => <button key={source.id} type="button" aria-pressed={selectedSources.includes(source.id)} className={selectedSources.includes(source.id) ? "source-option selected" : "source-option"} onClick={() => toggleSource(source.id)}><span>{source.label}</span><small>{source.detail}</small></button>)}</div>
             {selectedSources.includes("greenhouse") && <label className="greenhouse-field"><span>Greenhouse board tokens <small>optional</small></span><input value={greenhouseBoards} onChange={(event) => setGreenhouseBoards(event.target.value)} placeholder="e.g. stripe, airbnb" /><em>Use the token in a company&apos;s greenhouse.io board URL.</em></label>}
           </div>
@@ -170,12 +163,12 @@ export default function Home() {
 
       <section className="archive-card" aria-label="Google Drive archive">
         <div><p className="section-kicker">Google Drive + Excel-compatible tracker</p><h2>{googleStatus.connected ? "Your cloud archive is connected." : "Connect your cloud archive."}</h2><p>Every saved listing is written to a native Google Sheet inside a Fresh Listings folder in the selected Google Drive account. You can open it in Drive or download it as Excel.</p>{googleStatus.connected && <p className="connected-account">Google account: <strong>{googleStatus.googleAccountEmail || "Connected account"}</strong></p>}</div>
-        <div className="archive-actions"><a className="drive-button" href={googleStatus.spreadsheetUrl || DRIVE_ARCHIVE_URL} target="_blank" rel="noreferrer">{googleStatus.spreadsheetUrl ? "Open job tracker" : "Open job archive"} <span aria-hidden="true">↗</span></a>{googleStatus.driveFolderUrl && <a className="extension-button" href={googleStatus.driveFolderUrl} target="_blank" rel="noreferrer">Open Drive folder ↗</a>}<button className="extension-button" type="button" onClick={connectGoogle}>{googleStatus.connected ? "Switch Google account" : "Connect Google Drive"}</button><a className="extension-button" href="/fresh-listings-extension.zip" download>Free LinkedIn extension <span aria-hidden="true">↓</span></a></div>
+        <div className="archive-actions"><a className="drive-button" href={googleStatus.spreadsheetUrl || DRIVE_ARCHIVE_URL} target="_blank" rel="noreferrer">{googleStatus.spreadsheetUrl ? "Open job tracker" : "Open job archive"} <span aria-hidden="true">↗</span></a>{googleStatus.driveFolderUrl && <a className="extension-button" href={googleStatus.driveFolderUrl} target="_blank" rel="noreferrer">Open Drive folder ↗</a>}<button className="extension-button" type="button" onClick={connectGoogle}>{googleStatus.connected ? "Switch Google account" : "Connect Google Drive"}</button><a className="extension-button" href="/fresh-listings-extension.zip" download>Manual save helper <span aria-hidden="true">↓</span></a></div>
       </section>
 
       <section className="automation-card" aria-label="Automation controls">
         <div className="automation-heading"><div><p className="section-kicker">Automation control room</p><h2>Collect once. Keep everything.</h2></div><span className={googleStatus.connected ? "connection-pill connected" : "connection-pill"}>{googleStatus.connected ? "● Drive connected" : "○ Drive not connected"}</span></div>
-        <div className="automation-grid"><div><span>01</span><h3>Live provider</h3><p>{googleStatus.providerConfigured ? "SerpApi Google Jobs is ready for server-side collection." : "Add SERPAPI_API_KEY for automated cloud collection; the free extension remains available for LinkedIn."}</p></div><div><span>02</span><h3>Persistent history</h3><p>Every run is stored with source, application URL, posting age, skills, and capture time so refreshes do not erase your work.</p></div><div><span>03</span><h3>Sheets + digest</h3><p>Sync new rows to your Drive tracker and send the latest matches by email whenever you are ready.</p></div></div>
+        <div className="automation-grid"><div><span>01</span><h3>Live provider</h3><p>{googleStatus.providerConfigured ? "SerpApi Google Jobs is ready for approved server-side collection." : "Add SERPAPI_API_KEY for automated Google Jobs collection; restricted portals remain native-search/manual."}</p></div><div><span>02</span><h3>Persistent history</h3><p>Every run is stored with source, application URL, posting age, skills, and capture time so refreshes do not erase your work.</p></div><div><span>03</span><h3>Sheets + digest</h3><p>Sync new rows to your Drive tracker and send the latest matches by email whenever you are ready.</p></div></div>
         <div className="automation-actions"><button type="button" className="automation-button" onClick={syncToSheet} disabled={automationBusy || !googleStatus.connected}>Sync new jobs to Sheet <span aria-hidden="true">↗</span></button><button type="button" className="automation-button secondary" onClick={sendDigest} disabled={automationBusy}>Send digest now <span aria-hidden="true">↗</span></button></div>
         <p className="automation-message" role="status">{automationMessage || (googleStatus.emailConfigured ? "Email digest is configured." : "Email digest becomes active after adding RESEND_API_KEY and EMAIL_FROM in Site settings.")}</p>
       </section>
@@ -188,7 +181,7 @@ export default function Home() {
         {searched && !loading && <div className="status-line" role="status"><span className="status-check">✓</span><span>{isExhausted ? `Reached the end of the public results (${scanned} checked).` : `Scanned ${scanned} public listings, capped at 250 per source.`}</span></div>}
         {sourceLinks.length > 0 && <div className="source-links" aria-label="Continue your search on selected sources">{sourceLinks.map((source) => <a key={source.source} href={source.url} target="_blank" rel="noreferrer"><strong>{source.label}</strong><span>{source.note}</span><b aria-hidden="true">↗</b></a>)}</div>}
         <div className={jobs.length ? "results-table" : "results-table empty"}>{loading ? <LoadingRows /> : jobs.length ? <JobRows jobs={jobs} onAnalyze={analyzeFit} analyzingId={analyzingId} /> : <EmptyState searched={searched} windowLabel={selectedWindow.label} notice={notice} />}</div>
-        <p className="disclaimer">The free extension collects LinkedIn listings from your own browser, avoiding hosted-server limits. Greenhouse collects only from named public company boards. Indeed, Built In, Glassdoor, and TrueUp open their native searches; use the extension to save any result you keep into Drive.</p>
+        <p className="disclaimer">Fresh Listings never asks for job-portal passwords, cookies, MFA codes, or CAPTCHA tokens. Greenhouse uses named public boards; Google Jobs uses the configured provider; LinkedIn, Indeed, Built In, Glassdoor, and TrueUp open native searches until approved APIs or partner feeds are available. Use the manual save helper or paste a job URL to archive a listing you selected yourself.</p>
       </section>
     </main>
   );

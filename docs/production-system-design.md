@@ -59,6 +59,13 @@ flowchart LR
 - Normalization converts every provider response to one `job_postings` contract before persistence.
 - Deduplication and outbox creation happen in one database transaction; repeated provider results are safe.
 
+### 6.1 Source access policy
+
+- `public_api` sources such as Greenhouse may run automatically without an end-user portal login.
+- `approved_api` sources such as LinkedIn, Indeed, and Glassdoor remain disabled until written provider approval and credentials exist.
+- `manual` sources open native search links and accept user-entered URLs/CSV; no portal password, cookie, MFA code, or CAPTCHA is stored.
+- Source adapters must declare auth mode, quota, attribution, retention, and failure behavior before being enabled in production.
+
 ## 7. Realtime design
 
 - Socket.IO authenticates during handshake and joins `user:{id}` rooms; clients reconnect with exponential backoff.

@@ -2,6 +2,7 @@ import { getChatGPTUser } from "../../../chatgpt-auth";
 import { databaseErrorMessage, ensureUserSettings, getD1 } from "../../../../lib/runtime-db";
 import { emitRealtimeEvent } from "../../../../lib/realtime";
 import { collectJobs } from "../../../../lib/scraper";
+import { normalizeSources } from "../../../../lib/source-policy";
 
 const WINDOWS = new Set(["r86400", "r604800", "r2592000"]);
 
@@ -13,7 +14,7 @@ export async function POST(request: Request) {
   const keywords = clean(body.keywords, 120);
   const location = clean(body.location, 120) || "Worldwide";
   const timeWindow = WINDOWS.has(body.timeWindow || "") ? body.timeWindow! : "r86400";
-  const sources = Array.isArray(body.sources) && body.sources.length ? body.sources.slice(0, 12) : ["google_jobs"];
+  const sources = normalizeSources(body.sources);
   const greenhouseBoards = Array.isArray(body.greenhouseBoards) ? body.greenhouseBoards.slice(0, 12).map((value) => clean(value, 80)) : [];
   if (!keywords) return Response.json({ error: "A job title or keyword is required." }, { status: 400 });
 
@@ -30,14 +31,14 @@ export async function POST(request: Request) {
     `).bind(user.userId, job.externalId, job.title, job.company, job.location, job.source, job.directUrl, job.applyUrl, job.description, job.postedAt, job.remoteStatus, job.experience, job.salary, JSON.stringify(job.skills), `${keywords} · ${location}`, startedAt));
     statements.push(database.prepare("INSERT INTO scrape_runs (owner_user_id, provider, keywords, location, time_window, result_count, status) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(user.userId, result.provider, keywords, location, timeWindow, result.jobs.length, "succeeded"));
     await database.batch(statements);
-    await emitRealtimeEvent("scrape:progress", { userId: user.userId, scanned: result.jobs.length, saved: result.jobs.length, provider: result.provider });
+    await emitRealtimeEvent("scrape:progress", { userId: user.userId, scanned: result.scanned, saved: result.jobs.length, provider: result.provider });
     await emitRealtimeEvent("job:saved", { userId: user.userId, count: result.jobs.length, provider: result.provider });
-    const jobs = result.jobs.map((job) => ({ id: job.externalId, title: job.title, company: job.company, location: job.location, posted: job.postedAt || "Recently listed", link: job.directUrl, source: job.source === "LinkedIn" ? "linkedin" : "google_jobs", capturedAt: startedAt }));
-    return Response.json({ jobs, provider: result.provider, persistedCount: result.jobs.length, scanned: result.jobs.length, exhausted: true, sourceLinks: [] }, { headers: { "cache-control": "no-store" } });
+    const jobs = result.jobs.map((job) => ({ id: job.externalId, title: job.title, company: job.company, location: job.location, posted: job.postedAt || "Recently listed", link: job.directUrl, source: job.source, capturedAt: startedAt }));
+    return Response.json({ jobs, provider: result.provider, persistedCount: result.jobs.length, scanned: result.scanned, exhausted: true, sourceLinks: result.sourceLinks, notice: result.notices.join(" ") || undefined }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const message = databaseErrorMessage(error);
     try { await database.prepare("INSERT INTO scrape_runs (owner_user_id, provider, keywords, location, time_window, result_count, status, error) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(user.userId, "unavailable", keywords, location, timeWindow, 0, "failed", message).run(); } catch { /* preserve the provider error */ }
-    return Response.json({ error: message }, { status: message.includes("provider") || message.includes("SERPAPI") ? 503 : 500 });
+    return Response.json({ error: message }, { status: /provider|SERPAPI|approved|Greenhouse/i.test(message) ? 503 : 500 });
   }
 }
 

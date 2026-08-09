@@ -55,7 +55,9 @@ export async function POST(request: Request) {
     statements.push(database.prepare("INSERT INTO scrape_runs (owner_user_id, provider, keywords, location, time_window, result_count, status) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(link.ownerUserId, result.provider, prompt.keywords, prompt.location, prompt.timeWindow, result.jobs.length, "succeeded"));
     await database.batch(statements);
     await emitRealtimeEvent("job:saved", { userId: link.ownerUserId, count: result.jobs.length, source: "telegram" });
-    await sendTelegramMessage(chatId, formatJobDigest(result.jobs.map((job) => ({ title: job.title, company: job.company, location: job.location, directUrl: job.directUrl })), `Saved ${result.jobs.length} jobs for “${prompt.keywords}”`));
+    const heading = `Saved ${result.jobs.length} jobs for “${prompt.keywords}”`;
+    const suffix = result.notices.length ? `\n\n${result.notices.join(" ")}` : "";
+    await sendTelegramMessage(chatId, `${formatJobDigest(result.jobs.map((job) => ({ title: job.title, company: job.company, location: job.location, directUrl: job.directUrl })), heading)}${suffix}`);
     return Response.json({ ok: true, saved: result.jobs.length });
   } catch (error) {
     await sendTelegramMessage(chatId, `I couldn’t complete that search: ${databaseErrorMessage(error)}`);

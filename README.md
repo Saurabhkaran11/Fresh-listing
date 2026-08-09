@@ -1,12 +1,12 @@
 # Fresh Listings
 
-Fresh Listings is an authenticated job-search workspace for collecting, ranking, and tracking software-engineering opportunities. It stores each scrape in Cloudflare D1, supports a server-side Google Jobs provider, can sync new rows to a native Google Sheet that is Excel-compatible, sends an optional digest, and provides an optional AI fit analysis. LinkedIn live collection remains available through the free browser extension when a hosted server is rate-limited.
+Fresh Listings is an authenticated job-search workspace for collecting, ranking, and tracking software-engineering opportunities. It stores each approved/public collection in Cloudflare D1, can sync new rows to a native Google Sheet that is Excel-compatible, sends an optional digest, and provides an optional AI fit analysis. Restricted portals are exposed through native-search links or user-assisted manual import until an official partner integration is approved.
 
 ## Product surface
 
 - **Live search:** role, location, and 24-hour / 7-day / 30-day windows.
 - **Persistent history:** title, company, source, location, direct and application links, posting age, salary, skills, fit fields, search query, and capture time.
-- **Provider adapter:** SerpApi Google Jobs JSON, with a LinkedIn public-feed fallback and the browser extension for local collection.
+- **Provider adapters:** SerpApi Google Jobs and public Greenhouse Job Board API. Each source has an explicit access policy; restricted portals never receive a user password, browser cookie, MFA code, or CAPTCHA token.
 - **Google sync:** OAuth with Drive, Sheets, and account-identity scopes; lets the user choose a Google account, creates a `Fresh Listings` Drive folder and `Fresh Listings Job Tracker` sheet inside it, then appends only unsynced rows.
 - **AI Fit Analyzer:** optional Gemini scoring with skill gaps and three portfolio-project suggestions.
 - **Digest:** optional Resend HTML email endpoint.
@@ -60,7 +60,7 @@ The app uses vinext and Cloudflare-compatible output. D1 is declared as the `DB`
 ## API routes
 
 - `POST /api/scraper/run` — authenticate, collect, normalize, and persist jobs.
-- `GET /api/jobs` — public-feed/native-search compatibility route.
+- `GET /api/jobs` — public Greenhouse/native-search compatibility route.
 - `GET /api/google/status` — report Drive connection and provider readiness.
 - `GET /api/google/oauth/start` and `/api/google/oauth/callback` — Google OAuth.
 - `POST /api/google/sync` — append unsynced jobs to the user's Sheet.
@@ -105,7 +105,10 @@ cron credential to the browser.
 
 ## Browser extension
 
-The downloadable `public/fresh-listings-extension.zip` searches LinkedIn from the user's browser, supports the same posting windows, saves selected jobs to the Drive archive, and can save a job detail page from LinkedIn, Indeed, Built In, Glassdoor, Greenhouse, or TrueUp.
+The downloadable `public/fresh-listings-extension.zip` is a user-assisted manual save helper. It does not scrape, automate, or inject code into any job portal. A user copies the details and URL from a page they chose to view, then the helper sends only those entered fields to their own Google Apps Script Drive archive.
+
+The source-by-source access decision and official policy links are documented in
+[`docs/job-source-integration-policy.md`](docs/job-source-integration-policy.md).
 
 ## Git and deployment
 

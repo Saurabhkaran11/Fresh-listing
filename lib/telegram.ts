@@ -1,5 +1,6 @@
 import { runtimeEnv } from "./runtime-db";
 import { clampText } from "./security";
+import { SOURCE_IDS } from "./source-policy";
 
 export type TelegramPrompt = {
   keywords: string;
@@ -59,8 +60,8 @@ export function parseTelegramPrompt(message: string): TelegramPrompt {
   if (!keywords) keywords = "Software engineer";
 
   const sources = ["google_jobs"];
-  for (const source of ["linkedin", "indeed", "builtin", "glassdoor", "greenhouse", "trueup"]) {
-    if (lower.includes(source)) sources.push(source);
+  for (const source of SOURCE_IDS.filter((item) => item !== "google_jobs")) {
+    if (lower.includes(source.replace("_", " "))) sources.push(source);
   }
   return { keywords: clampText(keywords, 120), location, timeWindow, sources };
 }

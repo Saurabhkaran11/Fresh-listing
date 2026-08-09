@@ -3,12 +3,13 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 
 test("renders the Fresh Listings experience", async () => {
-  const [page, insights, route, extension, popup, layout, scraperRoute, googleRoute, googleStatus, aiRoute, schema, hosting, telegramRoute, analyticsRoute, realtimeServer] = await Promise.all([
+  const [page, insights, route, extension, popup, popupHtml, layout, scraperRoute, googleRoute, googleStatus, aiRoute, schema, hosting, telegramRoute, analyticsRoute, realtimeServer, sourcePolicy] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/insights-panel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/jobs/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../extension/fresh-listings/manifest.json", import.meta.url), "utf8"),
     readFile(new URL("../extension/fresh-listings/popup.js", import.meta.url), "utf8"),
+    readFile(new URL("../extension/fresh-listings/popup.html", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/scraper/run/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/google/sync/route.ts", import.meta.url), "utf8"),
@@ -19,6 +20,7 @@ test("renders the Fresh Listings experience", async () => {
     readFile(new URL("../app/api/telegram/webhook/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/analytics/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../realtime/server.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../lib/source-policy.ts", import.meta.url), "utf8"),
   ]);
   assert.match(page, /Don&apos;t miss the/);
   assert.match(page, /Last 24 hours/);
@@ -26,13 +28,15 @@ test("renders the Fresh Listings experience", async () => {
   assert.match(page, /Last 30 days/);
   assert.match(page, /\/api\/scraper\/run/);
   assert.match(page, /Google Drive archive/);
-  assert.match(page, /fresh-listings-extension\.zip/);
+  assert.match(page, /Manual save helper/);
   assert.match(page, /Greenhouse board tokens/);
   assert.match(route, /boards-api\.greenhouse\.io/);
-  assert.match(route, /indeed/);
+  assert.match(route, /Greenhouse/);
+  assert.doesNotMatch(route, /jobs-guest|fetchLinkedInJobs/);
   assert.match(extension, /manifest_version/);
-  assert.match(extension, /linkedin\.com/);
-  assert.match(popup, /Search LinkedIn/);
+  assert.match(popup, /saveManualJob|Save job to Drive/);
+  assert.doesNotMatch(popup, /executeScript|jobs-guest/);
+  assert.match(popupHtml, /Manual job save helper/);
   assert.match(page, /Automation control room/);
   assert.match(page, /InsightsPanel/);
   assert.match(insights, /AreaChart/);
@@ -47,6 +51,9 @@ test("renders the Fresh Listings experience", async () => {
   assert.match(analyticsRoute, /scrape_runs/);
   assert.match(realtimeServer, /Socket.IO|socket.io/);
   assert.match(hosting, /"d1":\s*"DB"/);
+  assert.match(sourcePolicy, /approved_api/);
+  assert.match(sourcePolicy, /greenhouse/);
+  assert.match(sourcePolicy, /trueup/);
   assert.match(layout, /Fresh Listings/);
   assert.match(layout, /og\.png/);
 });

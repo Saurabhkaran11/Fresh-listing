@@ -1,21 +1,21 @@
 <!doctype html>
 <html lang="en">
-  <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Fresh Listings Saver</title><link rel="stylesheet" href="popup.css"></head>
+  <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Fresh Listings Manual Saver</title><link rel="stylesheet" href="popup.css"></head>
   <body>
     <main>
-      <header><span class="mark">✦</span><div><strong>Fresh Listings</strong><p>Free LinkedIn search + Drive save</p></div></header>
-      <form id="search-form" class="search-form">
-        <label>Role<input id="keywords" value="Software Engineer" placeholder="e.g. Product designer" required></label>
-        <label>Location<input id="location" value="United States" placeholder="e.g. Remote or United States"></label>
-        <label>Posted<select id="time"><option value="r86400">Last 24 hours</option><option value="r604800">Last 7 days</option><option value="r2592000">Last 30 days</option></select></label>
-        <button id="search" class="search" type="submit">Search LinkedIn</button>
+      <header><span class="mark">✦</span><div><strong>Fresh Listings</strong><p>Manual job save helper</p></div></header>
+      <p class="muted">Copy the details from a job page and paste them here. This helper does not read portal pages, collect passwords, or access browser cookies.</p>
+      <form id="save-form" class="search-form">
+        <label>Job title<input id="title" placeholder="e.g. Product designer" required></label>
+        <label>Company<input id="company" placeholder="e.g. Acme" required></label>
+        <label>Location<input id="location" placeholder="e.g. Remote or New York"></label>
+        <label>Posted<input id="posted" placeholder="e.g. 2 days ago"></label>
+        <label>Source<select id="source"><option value="linkedin">LinkedIn</option><option value="indeed">Indeed</option><option value="builtin">Built In</option><option value="glassdoor">Glassdoor</option><option value="greenhouse">Greenhouse</option><option value="trueup">TrueUp</option><option value="google_jobs">Google Jobs</option></select></label>
+        <label>Direct job URL<input id="link" type="url" placeholder="https://…" required></label>
+        <label>Search context<input id="search" placeholder="Optional keywords and location"></label>
+        <button id="save" class="search" type="submit">Save job to Drive</button>
       </form>
-      <section class="results-wrap" aria-live="polite">
-        <div class="results-top"><strong id="result-count">Ready to search</strong><button id="save-selected" type="button" disabled>Save selected</button></div>
-        <div id="results" class="results"><p class="muted">Runs in your browser, so it does not depend on the hosted site&apos;s server connection.</p></div>
-      </section>
-      <section class="current-card"><button id="save-current" type="button">Save current job page</button><span>Use on a job detail page from LinkedIn, Indeed, Built In, Glassdoor, Greenhouse, or TrueUp.</span></section>
-      <p id="status" class="status"></p>
+      <p id="status" class="status" role="status"></p>
       <footer><a id="archive" href="https://docs.google.com/document/d/1NVTbiB73OGInnZHU7R70OSMGAIE1jINwYPWT_q1b-q0/edit" target="_blank">Open archive ↗</a><button id="settings" type="button">Connection settings</button></footer>
     </main>
     <script src="popup.js"></script>
