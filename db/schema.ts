@@ -63,3 +63,29 @@ export const oauthStates = sqliteTable("oauth_states", {
   ownerUserId: text("owner_user_id").notNull(),
   expiresAt: integer("expires_at").notNull(),
 });
+
+/**
+ * A Telegram chat can be linked to exactly one Fresh Listings account.  The
+ * separate link-token table keeps the one-time hand-off short-lived and
+ * prevents a bot chat id from ever being used as an account credential.
+ */
+export const telegramLinks = sqliteTable("telegram_links", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  ownerUserId: text("owner_user_id").notNull(),
+  chatId: text("chat_id").notNull(),
+  username: text("username"),
+  displayName: text("display_name"),
+  notificationsEnabled: integer("notifications_enabled", { mode: "boolean" }).notNull().default(true),
+  linkedAt: text("linked_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  lastSeenAt: text("last_seen_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+  ownerUnique: uniqueIndex("telegram_links_owner_idx").on(table.ownerUserId),
+  chatUnique: uniqueIndex("telegram_links_chat_idx").on(table.chatId),
+}));
+
+export const telegramLinkTokens = sqliteTable("telegram_link_tokens", {
+  token: text("token").primaryKey(),
+  ownerUserId: text("owner_user_id").notNull(),
+  expiresAt: integer("expires_at").notNull(),
+  usedAt: integer("used_at"),
+});

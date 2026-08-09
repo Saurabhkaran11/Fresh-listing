@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import InsightsPanel from "./components/insights-panel";
 
 type TimeWindow = "r86400" | "r604800" | "r2592000";
 type Source = "linkedin" | "indeed" | "builtin" | "glassdoor" | "greenhouse" | "trueup" | "google_jobs";
@@ -9,6 +10,7 @@ type Job = { id: string; title: string; company: string; location: string; poste
 type SourceLink = { source: Source; label: string; url: string; note: string };
 type SearchResponse = { jobs: Job[]; exhausted: boolean; scanned: number; notice?: string; sourceLinks?: SourceLink[]; provider?: string; persistedCount?: number };
 type GoogleStatus = { connected: boolean; spreadsheetUrl: string | null; googleConfigured?: boolean; providerConfigured?: boolean; emailConfigured?: boolean; error?: string };
+type SessionState = { authenticated: boolean; signInPath?: string; user?: { displayName: string; email: string } };
 
 const DRIVE_ARCHIVE_URL = "https://docs.google.com/document/d/1NVTbiB73OGInnZHU7R70OSMGAIE1jINwYPWT_q1b-q0/edit";
 const windows: { value: TimeWindow; label: string; detail: string }[] = [
@@ -30,6 +32,7 @@ const popularSearches = ["Product designer", "Data analyst", "Software engineer"
 function csvCell(value: string) { return `"${value.replaceAll('"', '""')}"`; }
 
 export default function Home() {
+  const [session, setSession] = useState<SessionState | null>(null);
   const [keywords, setKeywords] = useState("Product designer");
   const [location, setLocation] = useState("United States");
   const [timeWindow, setTimeWindow] = useState<TimeWindow>("r86400");
@@ -49,6 +52,10 @@ export default function Home() {
   const [analyzingId, setAnalyzingId] = useState("");
 
   const selectedWindow = useMemo(() => windows.find((window) => window.value === timeWindow) ?? windows[0], [timeWindow]);
+
+  useEffect(() => {
+    fetch("/api/auth/session", { cache: "no-store" }).then((response) => response.json()).then((data: SessionState) => setSession(data)).catch(() => setSession({ authenticated: false, signInPath: "/signin-with-chatgpt?return_to=%2F" }));
+  }, []);
 
   useEffect(() => {
     fetch("/api/google/status").then((response) => response.json()).then((data: GoogleStatus) => setGoogleStatus(data)).catch(() => setGoogleStatus({ connected: false, spreadsheetUrl: null }));
@@ -126,12 +133,15 @@ export default function Home() {
     finally { setAnalyzingId(""); }
   }
 
+  if (!session) return <main className="auth-shell"><div className="auth-card"><span className="brand-mark" aria-hidden="true"><i /></span><p className="section-kicker">Fresh Listings</p><h1>Preparing your private workspace…</h1><p>Checking your secure session before loading your saved job history.</p><span className="spinner auth-spinner" /></div></main>;
+  if (!session.authenticated) return <main className="auth-shell"><div className="auth-card"><span className="brand-mark" aria-hidden="true"><i /></span><p className="section-kicker">Private job workspace</p><h1>Sign in to start collecting.</h1><p>Your jobs, Google Drive connection, Telegram link, and progress analytics are private to your account.</p><a className="search-button auth-button" href={session.signInPath || "/signin-with-chatgpt?return_to=%2F"}>Sign in with ChatGPT ↗</a></div></main>;
+
   return (
     <main className="app-shell">
       <div className="page-glow page-glow-left" aria-hidden="true" /><div className="page-glow page-glow-right" aria-hidden="true" />
       <header className="topbar">
         <a className="brand" href="#search" aria-label="Fresh Listings home"><span className="brand-mark" aria-hidden="true"><i /></span><span>fresh listings</span></a>
-        <div className="topbar-note"><span className="live-dot" /> Multi-source job desk</div>
+        <div className="topbar-note"><span className="live-dot" /> {session.user?.displayName || "Private workspace"}</div>
       </header>
 
       <section className="hero" aria-labelledby="hero-title">
@@ -169,6 +179,8 @@ export default function Home() {
         <div className="automation-actions"><button type="button" className="automation-button" onClick={syncToSheet} disabled={automationBusy || !googleStatus.connected}>Sync new jobs to Sheet <span aria-hidden="true">↗</span></button><button type="button" className="automation-button secondary" onClick={sendDigest} disabled={automationBusy}>Send digest now <span aria-hidden="true">↗</span></button></div>
         <p className="automation-message" role="status">{automationMessage || (googleStatus.emailConfigured ? "Email digest is configured." : "Email digest becomes active after adding RESEND_API_KEY and EMAIL_FROM in Site settings.")}</p>
       </section>
+
+      <InsightsPanel />
 
       <section className="results-section" aria-labelledby="results-title">
         <div className="results-heading"><div><p className="section-kicker">Search results</p><h2 id="results-title">{loading ? "Looking for fresh matches…" : searched ? `${jobs.length} ${jobs.length === 1 ? "listing" : "listings"} collected` : "Your fresh results will appear here"}</h2></div><div className="results-actions">{jobs.length > 0 && <><button type="button" onClick={copyLinks}>{copied ? "Links copied" : "Copy links"}</button><button type="button" className="export-button" onClick={exportCsv}>Export CSV <span aria-hidden="true">↓</span></button></>}</div></div>

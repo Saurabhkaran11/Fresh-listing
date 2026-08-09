@@ -10,6 +10,9 @@ Fresh Listings is an authenticated job-search workspace for collecting, ranking,
 - **Google sync:** OAuth with `drive.file` and `spreadsheets` scopes; creates a `Fresh Listings Job Tracker` sheet and appends only unsynced rows.
 - **AI Fit Analyzer:** optional Gemini scoring with skill gaps and three portfolio-project suggestions.
 - **Digest:** optional Resend HTML email endpoint.
+- **Progress intelligence:** interactive Recharts analytics for saved momentum and source mix.
+- **Realtime updates:** the dashboard can connect to a separately hosted Socket.IO service with short-lived signed user tokens; searches emit progress and job-saved events.
+- **Telegram automation:** link one Telegram chat to the account, send natural-language search prompts, save results to the same history, and receive daily searched/saved totals.
 
 ## Runtime secrets
 
@@ -25,6 +28,14 @@ Copy `.env.example` for local development. In production, set the same names in 
 | `EMAIL_FROM` | Email digest | Verified sender, such as `Fresh Listings <jobs@example.com>` |
 | `GEMINI_API_KEY` | AI Fit Analyzer | Gemini API key, server-side only |
 | `GEMINI_MODEL` | AI Fit Analyzer | Defaults to `gemini-2.0-flash` |
+| `TELEGRAM_BOT_TOKEN` | Telegram search + notifications | Create a bot with BotFather; server-side only |
+| `TELEGRAM_BOT_USERNAME` | Telegram dashboard linking | Bot username without the `@` |
+| `TELEGRAM_WEBHOOK_SECRET` | Telegram webhook authentication | Long random value configured in Telegram `setWebhook` |
+| `CRON_SECRET` | Daily digest endpoint | Long random value sent by your scheduler as a Bearer token |
+| `REALTIME_SERVICE_URL` | Live dashboard events | Public URL of the Node Socket.IO service |
+| `REALTIME_SESSION_SECRET` | Socket.IO user authentication | Shared long random HMAC secret; never expose it to the browser |
+| `REALTIME_EVENT_SECRET` | App-to-Socket.IO event ingress | Shared long random Bearer secret |
+| `FRONTEND_ORIGIN` | Socket.IO CORS | Exact dashboard origin, without a trailing slash |
 
 For Google OAuth, register this exact redirect URI:
 
@@ -55,6 +66,42 @@ The app uses vinext and Cloudflare-compatible output. D1 is declared as the `DB`
 - `POST /api/google/sync` — append unsynced jobs to the user's Sheet.
 - `POST /api/digest/send` — send the latest saved jobs by email.
 - `POST /api/ai/fit` — score a saved job and persist the fit analysis.
+- `GET /api/analytics` — return saved/search totals and chart-ready daily/source series.
+- `GET /api/auth/session` — return the current signed-in workspace user or a safe sign-in path.
+- `GET /api/realtime/token` — mint a 15-minute signed Socket.IO session token.
+- `POST /api/telegram/link` — create a short-lived Telegram account-link token.
+- `GET /api/telegram/status` — report Telegram configuration and link state.
+- `POST /api/telegram/webhook` — receive authenticated Telegram updates and run prompt searches.
+- `POST /api/cron/daily-digest` — send daily searched/saved counts to linked Telegram chats.
+
+## Scalable realtime service
+
+The current Sites deployment remains the web and D1 surface. Run the Socket.IO
+service as a small Node.js service on a Node-capable host:
+
+```bash
+REALTIME_SESSION_SECRET="<same value as the web app>" \
+REALTIME_EVENT_SECRET="<same value as the web app>" \
+FRONTEND_ORIGIN="https://your-dashboard.example.com" \
+npm run realtime:start
+```
+
+Expose `/health` for the host health check and set the resulting public URL as
+`REALTIME_SERVICE_URL` in the web app. The service never receives Google or
+Telegram credentials; it only accepts signed user tokens and an internal event
+secret.
+
+After deployment, configure the Telegram webhook once (replace the placeholders
+with your values):
+
+```text
+https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook?url=https://your-dashboard.example.com/api/telegram/webhook&secret_token=<TELEGRAM_WEBHOOK_SECRET>
+```
+
+Configure a daily scheduler to `POST /api/cron/daily-digest` with
+`Authorization: Bearer <CRON_SECRET>`. The endpoint is intentionally separate
+from the scrape request so the scheduler can retry safely without exposing a
+cron credential to the browser.
 
 ## Browser extension
 

@@ -1,5 +1,6 @@
 import { getChatGPTUser } from "../../../chatgpt-auth";
 import { databaseErrorMessage, ensureUserSettings, getD1 } from "../../../../lib/runtime-db";
+import { emitRealtimeEvent } from "../../../../lib/realtime";
 import { collectJobs } from "../../../../lib/scraper";
 
 const WINDOWS = new Set(["r86400", "r604800", "r2592000"]);
@@ -20,6 +21,7 @@ export async function POST(request: Request) {
   await ensureUserSettings(database, user.userId, user.email);
   const startedAt = new Date().toISOString();
   try {
+    await emitRealtimeEvent("scrape:started", { userId: user.userId, keywords, location, timeWindow });
     const result = await collectJobs({ keywords, location, timeWindow, sources, greenhouseBoards });
     const statements = result.jobs.map((job) => database.prepare(`
       INSERT INTO job_postings (owner_user_id, external_id, title, company, location, source, direct_url, apply_url, description, posted_at, remote_status, experience, salary, skills_json, search_query, captured_at)
@@ -28,6 +30,8 @@ export async function POST(request: Request) {
     `).bind(user.userId, job.externalId, job.title, job.company, job.location, job.source, job.directUrl, job.applyUrl, job.description, job.postedAt, job.remoteStatus, job.experience, job.salary, JSON.stringify(job.skills), `${keywords} · ${location}`, startedAt));
     statements.push(database.prepare("INSERT INTO scrape_runs (owner_user_id, provider, keywords, location, time_window, result_count, status) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(user.userId, result.provider, keywords, location, timeWindow, result.jobs.length, "succeeded"));
     await database.batch(statements);
+    await emitRealtimeEvent("scrape:progress", { userId: user.userId, scanned: result.jobs.length, saved: result.jobs.length, provider: result.provider });
+    await emitRealtimeEvent("job:saved", { userId: user.userId, count: result.jobs.length, provider: result.provider });
     const jobs = result.jobs.map((job) => ({ id: job.externalId, title: job.title, company: job.company, location: job.location, posted: job.postedAt || "Recently listed", link: job.directUrl, source: job.source === "LinkedIn" ? "linkedin" : "google_jobs", capturedAt: startedAt }));
     return Response.json({ jobs, provider: result.provider, persistedCount: result.jobs.length, scanned: result.jobs.length, exhausted: true, sourceLinks: [] }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
