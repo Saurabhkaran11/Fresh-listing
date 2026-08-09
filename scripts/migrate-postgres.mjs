@@ -10,6 +10,7 @@ const schema = await readFile(new URL("../infra/postgres/schema.sql", import.met
 const statements = schema
   .split(/;\s*(?:\r?\n|$)/)
   .map((statement) => statement.trim())
+  .filter((statement) => statement.replace(/--[^\n]*\n?/g, "").trim())
   .filter(Boolean);
 const sql = neon(connectionString, { fullResults: true });
 

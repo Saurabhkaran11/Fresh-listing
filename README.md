@@ -134,6 +134,7 @@ runbook before moving production traffic:
 
 - [Production system design](docs/production-system-design.md) — service boundaries, security, latency budgets, SLOs, and failure handling.
 - [Production migration runbook](docs/production-migration-runbook.md) — accounts, migrations, Render/Vercel setup, cutover, and rollback.
+- [Neon PostgreSQL setup](docs/neon-setup.md) — provisioned project identifiers, secure `DATABASE_URL` handling, and remaining deployment inputs.
 - `render.yaml` — Render realtime service configuration.
 - `infra/postgres/schema.sql` — PostgreSQL baseline for the migration.
 - `.env.production.example` — target production secret names and ownership.
