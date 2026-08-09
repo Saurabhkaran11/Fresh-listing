@@ -1,13 +1,14 @@
 {
   "manifest_version": 3,
   "name": "Fresh Listings Saver",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Save a job from LinkedIn, Indeed, Built In, Glassdoor, Greenhouse, or TrueUp to your Fresh Listings Google Drive archive.",
   "action": {
     "default_title": "Save this job to Fresh Listings",
     "default_popup": "popup.html"
   },
   "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["https://www.linkedin.com/*"],
   "optional_host_permissions": ["https://script.google.com/*", "https://script.googleusercontent.com/*"],
   "options_page": "options.html"
 }

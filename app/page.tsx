@@ -16,7 +16,7 @@ const windows: { value: TimeWindow; label: string; detail: string }[] = [
   { value: "r2592000", label: "Last 30 days", detail: "This month" },
 ];
 const sourceOptions: { id: Source; label: string; detail: string }[] = [
-  { id: "linkedin", label: "LinkedIn", detail: "Live feed" },
+  { id: "linkedin", label: "LinkedIn", detail: "Free extension" },
   { id: "indeed", label: "Indeed", detail: "Native search" },
   { id: "builtin", label: "Built In", detail: "Native search" },
   { id: "glassdoor", label: "Glassdoor", detail: "Native search" },
@@ -104,7 +104,7 @@ export default function Home() {
           <div className="window-row"><span className="window-label">Posted</span><div className="window-picker" role="radiogroup" aria-label="Posting date range">{windows.map((window) => <button key={window.value} type="button" role="radio" aria-checked={timeWindow === window.value} className={timeWindow === window.value ? "window-option selected" : "window-option"} onClick={() => setTimeWindow(window.value)}><span>{window.label}</span><small>{window.detail}</small></button>)}</div><div className="popular"><span>Try:</span>{popularSearches.map((search) => <button type="button" key={search} onClick={() => setKeywords(search)}>{search}</button>)}</div></div>
 
           <div className="sources-row">
-            <div className="sources-copy"><span className="window-label">Sources</span><small>Live listings where public feeds allow it. Native searches everywhere else.</small></div>
+            <div className="sources-copy"><span className="window-label">Sources</span><small>Use the free extension for live LinkedIn collection; open native searches everywhere else.</small></div>
             <div className="source-picker" role="group" aria-label="Job sources">{sourceOptions.map((source) => <button key={source.id} type="button" aria-pressed={selectedSources.includes(source.id)} className={selectedSources.includes(source.id) ? "source-option selected" : "source-option"} onClick={() => toggleSource(source.id)}><span>{source.label}</span><small>{source.detail}</small></button>)}</div>
             {selectedSources.includes("greenhouse") && <label className="greenhouse-field"><span>Greenhouse board tokens <small>optional</small></span><input value={greenhouseBoards} onChange={(event) => setGreenhouseBoards(event.target.value)} placeholder="e.g. stripe, airbnb" /><em>Use the token in a company&apos;s greenhouse.io board URL.</em></label>}
           </div>
@@ -122,7 +122,7 @@ export default function Home() {
         {searched && !loading && <div className="status-line" role="status"><span className="status-check">✓</span><span>{isExhausted ? `Reached the end of the public results (${scanned} checked).` : `Scanned ${scanned} public listings, capped at 250 per source.`}</span></div>}
         {sourceLinks.length > 0 && <div className="source-links" aria-label="Continue your search on selected sources">{sourceLinks.map((source) => <a key={source.source} href={source.url} target="_blank" rel="noreferrer"><strong>{source.label}</strong><span>{source.note}</span><b aria-hidden="true">↗</b></a>)}</div>}
         <div className={jobs.length ? "results-table" : "results-table empty"}>{loading ? <LoadingRows /> : jobs.length ? <JobRows jobs={jobs} /> : <EmptyState searched={searched} windowLabel={selectedWindow.label} notice={notice} />}</div>
-        <p className="disclaimer">LinkedIn is collected from its public job feed. Greenhouse collects only from named public company boards. Indeed, Built In, Glassdoor, and TrueUp open their native searches; use the extension to save any result you keep into Drive.</p>
+        <p className="disclaimer">The free extension collects LinkedIn listings from your own browser, avoiding hosted-server limits. Greenhouse collects only from named public company boards. Indeed, Built In, Glassdoor, and TrueUp open their native searches; use the extension to save any result you keep into Drive.</p>
       </section>
     </main>
   );

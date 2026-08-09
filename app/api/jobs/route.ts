@@ -36,33 +36,38 @@ export async function GET(request: NextRequest) {
   let exhausted = false;
   const notices: string[] = [];
 
-  try {
-    if (sources.includes("linkedin")) {
+  if (sources.includes("linkedin")) {
+    try {
       const linkedIn = await fetchLinkedInJobs(keywords, location, time, limit);
       linkedIn.jobs.forEach((job) => jobs.set(job.id, job));
       scanned += linkedIn.scanned;
       exhausted = linkedIn.exhausted;
+    } catch {
+      notices.push("LinkedIn live collection runs in the free Fresh Listings browser extension. Download it below to search from your own browser and save selected jobs to Drive.");
     }
+  }
 
-    if (sources.includes("greenhouse")) {
-      if (!greenhouseBoards.length) {
-        notices.push("Add public Greenhouse board tokens to collect company career-board results.");
-      } else {
-        const results = await Promise.all(greenhouseBoards.map((board) => fetchGreenhouseBoard(board, keywords, location, time)));
-        for (const result of results) {
-          scanned += result.scanned;
-          result.jobs.forEach((job) => jobs.set(job.id, job));
-          if (result.notice) notices.push(result.notice);
+  if (sources.includes("greenhouse")) {
+    if (!greenhouseBoards.length) {
+      notices.push("Add public Greenhouse board tokens to collect company career-board results.");
+    } else {
+      const results = await Promise.all(greenhouseBoards.map(async (board) => {
+        try {
+          return await fetchGreenhouseBoard(board, keywords, location, time);
+        } catch {
+          return { jobs: [] as Job[], scanned: 0, notice: `Could not read the Greenhouse board “${board}”.` };
         }
+      }));
+      for (const result of results) {
+        scanned += result.scanned;
+        result.jobs.forEach((job) => jobs.set(job.id, job));
+        if (result.notice) notices.push(result.notice);
       }
     }
+  }
 
-    if (sources.some((source) => ["indeed", "builtin", "glassdoor", "trueup"].includes(source))) {
-      notices.push("Use the source shortcuts below for Indeed, Built In, Glassdoor, and TrueUp; the extension can save each job you choose there.");
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Search is unavailable right now.";
-    return Response.json({ error: message }, { status: 502 });
+  if (sources.some((source) => ["indeed", "builtin", "glassdoor", "trueup"].includes(source))) {
+    notices.push("Use the source shortcuts below for Indeed, Built In, Glassdoor, and TrueUp; the extension can save each job you choose there.");
   }
 
   const sortedJobs = [...jobs.values()]
@@ -160,7 +165,7 @@ function buildSourceLinks(keywords: string, location: string, time: string, sour
   const encodedLocation = encodeURIComponent(location);
   const days = time === "r86400" ? "1" : time === "r604800" ? "7" : "30";
   const all: Record<Exclude<Source, "greenhouse">, SourceLink> = {
-    linkedin: { source: "linkedin", label: "LinkedIn", url: `https://www.linkedin.com/jobs/search/?keywords=${encodedKeywords}&location=${encodedLocation}&f_TPR=${time}`, note: "Public feed collected here" },
+    linkedin: { source: "linkedin", label: "LinkedIn", url: `https://www.linkedin.com/jobs/search/?keywords=${encodedKeywords}&location=${encodedLocation}&f_TPR=${time}`, note: "Open native search or use extension" },
     indeed: { source: "indeed", label: "Indeed", url: `https://www.indeed.com/jobs?q=${encodedKeywords}&l=${encodedLocation}&fromage=${days}`, note: "Open native search" },
     builtin: { source: "builtin", label: "Built In", url: `https://builtin.com/jobs?search=${encodedKeywords}`, note: "Open native search" },
     glassdoor: { source: "glassdoor", label: "Glassdoor", url: `https://www.glassdoor.com/Job/jobs.htm?sc.keyword=${encodedKeywords}`, note: "Open native search" },

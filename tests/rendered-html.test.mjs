@@ -3,10 +3,11 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 
 test("renders the Fresh Listings experience", async () => {
-  const [page, route, extension, layout] = await Promise.all([
+  const [page, route, extension, popup, layout] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/jobs/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../extension/fresh-listings/manifest.json", import.meta.url), "utf8"),
+    readFile(new URL("../extension/fresh-listings/popup.js", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(page, /Don&apos;t miss the/);
@@ -20,6 +21,8 @@ test("renders the Fresh Listings experience", async () => {
   assert.match(route, /boards-api\.greenhouse\.io/);
   assert.match(route, /indeed/);
   assert.match(extension, /manifest_version/);
+  assert.match(extension, /linkedin\.com/);
+  assert.match(popup, /Search LinkedIn/);
   assert.match(layout, /Fresh Listings/);
   assert.match(layout, /og\.png/);
 });
