@@ -1,4 +1,17 @@
-# vinext-starter
+# Fresh Listings
+
+Fresh Listings is an authenticated job-search workspace. It stores each scrape in D1, supports a server-side Google Jobs provider, and can sync new rows to a native Google Sheet that is Excel-compatible. LinkedIn live collection remains available through the free browser extension when the hosted server is rate-limited.
+
+## Runtime setup
+
+Set these Site runtime values before enabling the cloud workflow:
+
+- `SERPAPI_API_KEY` enables server-side Google Jobs collection.
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_TOKEN_ENCRYPTION_KEY` enable Drive/Sheets OAuth. Register `/api/google/oauth/callback` as an authorized redirect URI in Google Cloud.
+- `RESEND_API_KEY` and `EMAIL_FROM` enable the digest button.
+- `GEMINI_API_KEY` is reserved for the AI fit analyzer integration.
+
+The Google token is encrypted with AES-GCM before it is stored in D1. The application requests only `drive.file` and `spreadsheets` scopes and creates the tracker in the connected Drive account.
 
 A clean full-stack starter running on
 [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and

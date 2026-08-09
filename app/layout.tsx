@@ -14,11 +14,11 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     metadataBase,
-    title: "Fresh Listings — LinkedIn job search",
-    description: "Find public LinkedIn job listings posted in the last 24 hours, 7 days, or 30 days.",
+    title: "Fresh Listings — Automated SDE job tracker",
+    description: "Search live job listings, persist every detail, sync to Google Drive and Excel-compatible Sheets, and send a daily digest.",
     icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
-    openGraph: { title: "Fresh LinkedIn listings", description: "Find jobs posted in the last 24 hours, 7 days, or 30 days.", images: [{ url: "/og.png", width: 1731, height: 909, alt: "Fresh LinkedIn listings" }] },
-    twitter: { card: "summary_large_image", title: "Fresh LinkedIn listings", description: "Find jobs posted in the last 24 hours, 7 days, or 30 days.", images: ["/og.png"] },
+    openGraph: { title: "Fresh Listings — Automated SDE job tracker", description: "Live job search with persistent history, Drive sync, and digests.", images: [{ url: "/og.png", width: 1731, height: 909, alt: "Fresh Listings automated job tracker" }] },
+    twitter: { card: "summary_large_image", title: "Fresh Listings — Automated SDE job tracker", description: "Live job search with persistent history, Drive sync, and digests.", images: ["/og.png"] },
   };
 }
 

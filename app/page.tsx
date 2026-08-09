@@ -1,13 +1,14 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type TimeWindow = "r86400" | "r604800" | "r2592000";
-type Source = "linkedin" | "indeed" | "builtin" | "glassdoor" | "greenhouse" | "trueup";
+type Source = "linkedin" | "indeed" | "builtin" | "glassdoor" | "greenhouse" | "trueup" | "google_jobs";
 
-type Job = { id: string; title: string; company: string; location: string; posted: string; link: string; source: Source; capturedAt: string };
+type Job = { id: string; title: string; company: string; location: string; posted: string; link: string; source: Source; capturedAt: string; fitScore?: number };
 type SourceLink = { source: Source; label: string; url: string; note: string };
-type SearchResponse = { jobs: Job[]; exhausted: boolean; scanned: number; notice?: string; sourceLinks: SourceLink[] };
+type SearchResponse = { jobs: Job[]; exhausted: boolean; scanned: number; notice?: string; sourceLinks?: SourceLink[]; provider?: string; persistedCount?: number };
+type GoogleStatus = { connected: boolean; spreadsheetUrl: string | null; googleConfigured?: boolean; providerConfigured?: boolean; emailConfigured?: boolean; error?: string };
 
 const DRIVE_ARCHIVE_URL = "https://docs.google.com/document/d/1NVTbiB73OGInnZHU7R70OSMGAIE1jINwYPWT_q1b-q0/edit";
 const windows: { value: TimeWindow; label: string; detail: string }[] = [
@@ -22,6 +23,7 @@ const sourceOptions: { id: Source; label: string; detail: string }[] = [
   { id: "glassdoor", label: "Glassdoor", detail: "Native search" },
   { id: "greenhouse", label: "Greenhouse", detail: "Board API" },
   { id: "trueup", label: "TrueUp", detail: "Native search" },
+  { id: "google_jobs", label: "Google Jobs", detail: "Automated feed" },
 ];
 const popularSearches = ["Product designer", "Data analyst", "Software engineer"];
 
@@ -41,8 +43,16 @@ export default function Home() {
   const [scanned, setScanned] = useState(0);
   const [isExhausted, setIsExhausted] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [googleStatus, setGoogleStatus] = useState<GoogleStatus>({ connected: false, spreadsheetUrl: null });
+  const [automationMessage, setAutomationMessage] = useState("");
+  const [automationBusy, setAutomationBusy] = useState(false);
+  const [analyzingId, setAnalyzingId] = useState("");
 
   const selectedWindow = useMemo(() => windows.find((window) => window.value === timeWindow) ?? windows[0], [timeWindow]);
+
+  useEffect(() => {
+    fetch("/api/google/status").then((response) => response.json()).then((data: GoogleStatus) => setGoogleStatus(data)).catch(() => setGoogleStatus({ connected: false, spreadsheetUrl: null }));
+  }, []);
 
   function toggleSource(source: Source) {
     setSelectedSources((current) => current.includes(source) ? current.filter((item) => item !== source) : [...current, source]);
@@ -55,11 +65,10 @@ export default function Home() {
 
     setLoading(true); setSearched(true); setCopied(false); setNotice("");
     try {
-      const params = new URLSearchParams({ keywords: keywords.trim(), location: location.trim() || "Worldwide", time: timeWindow, limit: "250", sources: selectedSources.join(","), greenhouseBoards: greenhouseBoards.trim() });
-      const response = await fetch(`/api/jobs?${params.toString()}`);
+      const response = await fetch("/api/scraper/run", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ keywords: keywords.trim(), location: location.trim() || "Worldwide", timeWindow, sources: selectedSources, greenhouseBoards: greenhouseBoards.split(",").map((value) => value.trim()).filter(Boolean) }) });
       const data = (await response.json()) as SearchResponse & { error?: string };
       if (!response.ok) throw new Error(data.error || "Search is unavailable right now.");
-      setJobs(data.jobs); setScanned(data.scanned); setIsExhausted(data.exhausted); setSourceLinks(data.sourceLinks); setNotice(data.notice || "");
+      setJobs(data.jobs); setScanned(data.scanned); setIsExhausted(data.exhausted); setSourceLinks(data.sourceLinks || []); setNotice(data.notice || `${data.persistedCount || data.jobs.length} listings saved to your Fresh Listings history.`);
     } catch (error) {
       setJobs([]); setSourceLinks([]); setScanned(0); setIsExhausted(false); setNotice(error instanceof Error ? error.message : "Search is unavailable right now.");
     } finally { setLoading(false); }
@@ -77,6 +86,44 @@ export default function Home() {
     const csv = rows.map((row) => row.map(csvCell).join(",")).join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a"); link.href = url; link.download = `fresh-listings-${timeWindow.replace("r", "")}.csv`; link.click(); URL.revokeObjectURL(url);
+  }
+
+  function connectGoogle() { window.location.href = "/api/google/oauth/start"; }
+
+  async function syncToSheet() {
+    setAutomationBusy(true); setAutomationMessage("");
+    try {
+      const response = await fetch("/api/google/sync", { method: "POST" });
+      const data = await response.json() as { url?: string; saved?: number; error?: string };
+      if (!response.ok) throw new Error(data.error || "Google Sheet sync failed.");
+      setGoogleStatus((current) => ({ ...current, connected: true, spreadsheetUrl: data.url || current.spreadsheetUrl }));
+      setAutomationMessage(`${data.saved || 0} saved listings synced to your Excel-compatible Google Sheet.`);
+    } catch (error) { setAutomationMessage(error instanceof Error ? error.message : "Google Sheet sync failed."); }
+    finally { setAutomationBusy(false); }
+  }
+
+  async function sendDigest() {
+    setAutomationBusy(true); setAutomationMessage("");
+    try {
+      const response = await fetch("/api/digest/send", { method: "POST" });
+      const data = await response.json() as { recipient?: string; count?: number; error?: string };
+      if (!response.ok) throw new Error(data.error || "Digest could not be sent.");
+      setAutomationMessage(`Digest sent to ${data.recipient} with ${data.count} listings.`);
+    } catch (error) { setAutomationMessage(error instanceof Error ? error.message : "Digest could not be sent."); }
+    finally { setAutomationBusy(false); }
+  }
+
+  async function analyzeFit(job: Job) {
+    setAnalyzingId(job.id); setAutomationMessage("");
+    try {
+      const response = await fetch("/api/ai/fit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ externalId: job.id, candidateSkills: "TypeScript, JavaScript, React, Node.js, SQL, AWS" }) });
+      const data = await response.json() as { analysis?: { score?: number; summary?: string }; error?: string };
+      if (!response.ok) throw new Error(data.error || "AI fit analysis failed.");
+      const score = Number(data.analysis?.score || 0);
+      setJobs((current) => current.map((item) => item.id === job.id ? { ...item, fitScore: score } : item));
+      setAutomationMessage(`AI fit score: ${score}/100. ${data.analysis?.summary || "Analysis saved to your history."}`);
+    } catch (error) { setAutomationMessage(error instanceof Error ? error.message : "AI fit analysis failed."); }
+    finally { setAnalyzingId(""); }
   }
 
   return (
@@ -112,8 +159,15 @@ export default function Home() {
       </section>
 
       <section className="archive-card" aria-label="Google Drive archive">
-        <div><p className="section-kicker">Google Drive archive</p><h2>Your job log is ready.</h2><p>Every extension save stores title, company, source, location, posting time, capture time, search, and direct link.</p></div>
-        <div className="archive-actions"><a className="drive-button" href={DRIVE_ARCHIVE_URL} target="_blank" rel="noreferrer">Open job archive <span aria-hidden="true">↗</span></a><a className="extension-button" href="/fresh-listings-extension.zip" download>Get browser extension <span aria-hidden="true">↓</span></a></div>
+        <div><p className="section-kicker">Google Drive + Excel-compatible tracker</p><h2>{googleStatus.connected ? "Your cloud archive is connected." : "Connect your cloud archive."}</h2><p>Scraped listings are persisted here first, then synced to a native Google Sheet you can open in Drive or download as Excel.</p></div>
+        <div className="archive-actions"><a className="drive-button" href={googleStatus.spreadsheetUrl || DRIVE_ARCHIVE_URL} target="_blank" rel="noreferrer">{googleStatus.spreadsheetUrl ? "Open job tracker" : "Open job archive"} <span aria-hidden="true">↗</span></a><button className="extension-button" type="button" onClick={connectGoogle}>{googleStatus.connected ? "Reconnect Google" : "Connect Google Drive"}</button><a className="extension-button" href="/fresh-listings-extension.zip" download>Free LinkedIn extension <span aria-hidden="true">↓</span></a></div>
+      </section>
+
+      <section className="automation-card" aria-label="Automation controls">
+        <div className="automation-heading"><div><p className="section-kicker">Automation control room</p><h2>Collect once. Keep everything.</h2></div><span className={googleStatus.connected ? "connection-pill connected" : "connection-pill"}>{googleStatus.connected ? "● Drive connected" : "○ Drive not connected"}</span></div>
+        <div className="automation-grid"><div><span>01</span><h3>Live provider</h3><p>{googleStatus.providerConfigured ? "SerpApi Google Jobs is ready for server-side collection." : "Add SERPAPI_API_KEY for automated cloud collection; the free extension remains available for LinkedIn."}</p></div><div><span>02</span><h3>Persistent history</h3><p>Every run is stored with source, application URL, posting age, skills, and capture time so refreshes do not erase your work.</p></div><div><span>03</span><h3>Sheets + digest</h3><p>Sync new rows to your Drive tracker and send the latest matches by email whenever you are ready.</p></div></div>
+        <div className="automation-actions"><button type="button" className="automation-button" onClick={syncToSheet} disabled={automationBusy || !googleStatus.connected}>Sync new jobs to Sheet <span aria-hidden="true">↗</span></button><button type="button" className="automation-button secondary" onClick={sendDigest} disabled={automationBusy}>Send digest now <span aria-hidden="true">↗</span></button></div>
+        <p className="automation-message" role="status">{automationMessage || (googleStatus.emailConfigured ? "Email digest is configured." : "Email digest becomes active after adding RESEND_API_KEY and EMAIL_FROM in Site settings.")}</p>
       </section>
 
       <section className="results-section" aria-labelledby="results-title">
@@ -121,15 +175,15 @@ export default function Home() {
 
         {searched && !loading && <div className="status-line" role="status"><span className="status-check">✓</span><span>{isExhausted ? `Reached the end of the public results (${scanned} checked).` : `Scanned ${scanned} public listings, capped at 250 per source.`}</span></div>}
         {sourceLinks.length > 0 && <div className="source-links" aria-label="Continue your search on selected sources">{sourceLinks.map((source) => <a key={source.source} href={source.url} target="_blank" rel="noreferrer"><strong>{source.label}</strong><span>{source.note}</span><b aria-hidden="true">↗</b></a>)}</div>}
-        <div className={jobs.length ? "results-table" : "results-table empty"}>{loading ? <LoadingRows /> : jobs.length ? <JobRows jobs={jobs} /> : <EmptyState searched={searched} windowLabel={selectedWindow.label} notice={notice} />}</div>
+        <div className={jobs.length ? "results-table" : "results-table empty"}>{loading ? <LoadingRows /> : jobs.length ? <JobRows jobs={jobs} onAnalyze={analyzeFit} analyzingId={analyzingId} /> : <EmptyState searched={searched} windowLabel={selectedWindow.label} notice={notice} />}</div>
         <p className="disclaimer">The free extension collects LinkedIn listings from your own browser, avoiding hosted-server limits. Greenhouse collects only from named public company boards. Indeed, Built In, Glassdoor, and TrueUp open their native searches; use the extension to save any result you keep into Drive.</p>
       </section>
     </main>
   );
 }
 
-function JobRows({ jobs }: { jobs: Job[] }) {
-  return <><div className="table-head" aria-hidden="true"><span>Role</span><span>Company</span><span>Source</span><span>Posted</span><span>Location</span><span /></div><div className="table-body">{jobs.map((job) => <article className="job-row" key={job.id}><div className="role-cell"><span className="job-avatar">{job.company.slice(0, 1).toUpperCase()}</span><div><h3>{job.title}</h3><p className="mobile-company">{job.company} · {job.source}</p></div></div><p className="company-cell">{job.company}</p><p className="source-cell">{sourceOptions.find((source) => source.id === job.source)?.label}</p><p className="posted-cell"><span className="tiny-clock" aria-hidden="true" />{job.posted}</p><p className="location-cell">{job.location}</p><a className="open-job" href={job.link} target="_blank" rel="noreferrer" aria-label={`Open ${job.title} at ${job.company}`}>View <span aria-hidden="true">↗</span></a></article>)}</div></>;
+function JobRows({ jobs, onAnalyze, analyzingId }: { jobs: Job[]; onAnalyze: (job: Job) => void; analyzingId: string }) {
+  return <><div className="table-head" aria-hidden="true"><span>Role</span><span>Company</span><span>Source</span><span>Posted</span><span>Location</span><span /></div><div className="table-body">{jobs.map((job) => <article className="job-row" key={job.id}><div className="role-cell"><span className="job-avatar">{job.company.slice(0, 1).toUpperCase()}</span><div><h3>{job.title}</h3><p className="mobile-company">{job.company} · {job.source}</p></div><button className="fit-button" type="button" onClick={() => onAnalyze(job)} disabled={analyzingId === job.id}>{analyzingId === job.id ? "…" : job.fitScore ? `${job.fitScore}%` : "AI fit"}</button></div><p className="company-cell">{job.company}</p><p className="source-cell">{sourceOptions.find((source) => source.id === job.source)?.label}</p><p className="posted-cell"><span className="tiny-clock" aria-hidden="true" />{job.posted}</p><p className="location-cell">{job.location}</p><a className="open-job" href={job.link} target="_blank" rel="noreferrer" aria-label={`Open ${job.title} at ${job.company}`}>View <span aria-hidden="true">↗</span></a></article>)}</div></>;
 }
 
 function LoadingRows() { return <div className="loading-rows" aria-label="Loading results"><div /><div /><div /><div /><div /></div>; }

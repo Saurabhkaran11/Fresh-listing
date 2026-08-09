@@ -1,3 +1,4 @@
+/* global chrome */
 const webhook = document.querySelector("#webhook");
 const secret = document.querySelector("#secret");
 const status = document.querySelector("#status");

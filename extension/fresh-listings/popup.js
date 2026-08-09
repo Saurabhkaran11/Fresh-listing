@@ -1,3 +1,4 @@
+/* global chrome */
 const $ = (selector) => document.querySelector(selector);
 const PAGE_SIZE = 25;
 const MAX_RESULTS = 100;
@@ -40,12 +41,12 @@ async function searchLinkedIn(event) {
 function parseLinkedInJobs(html, keywords, location, time) {
   const clean = (value) => String(value || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
   const field = (card, className) => {
-    const match = card.match(new RegExp(`<[^>]*class="[^\"]*${className}[^\"]*"[^>]*>([\\s\\S]*?)<\\/[^>]+>`, "i"));
+    const match = card.match(new RegExp(`<[^>]*class="[^"]*${className}[^"]*"[^>]*>([\\s\\S]*?)<\\/[^>]+>`, "i"));
     return match ? decodeHtml(clean(match[1])) : "";
   };
   return html.split(/(?=<li\b)/i).filter((card) => /base-search-card--link/i.test(card)).flatMap((card) => {
     const rawId = card.match(/data-entity-urn="urn:li:jobPosting:(\d+)"/i)?.[1];
-    const rawLink = card.match(/href="(https:\/\/[^\"]*linkedin\.com\/jobs\/view\/[^\"?]+)[^\"]*"/i)?.[1];
+    const rawLink = card.match(/href="(https:\/\/[^"]*linkedin\.com\/jobs\/view\/[^"?]+)[^"]*"/i)?.[1];
     const title = field(card, "base-search-card__title");
     const company = field(card, "base-search-card__subtitle");
     const jobLocation = field(card, "job-search-card__location");

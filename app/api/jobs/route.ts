@@ -150,7 +150,7 @@ function parseLinkedInJobs(html: string): Job[] {
     .filter((card) => /base-search-card--link/i.test(card))
     .flatMap((card) => {
       const id = card.match(/data-entity-urn="urn:li:jobPosting:(\d+)"/i)?.[1];
-      const link = card.match(/href="(https:\/\/[^\"]*linkedin\.com\/jobs\/view\/[^\"?]+)[^\"]*"/i)?.[1];
+      const link = card.match(/href="(https:\/\/[^"]*linkedin\.com\/jobs\/view\/[^"?]+)[^"]*"/i)?.[1];
       const title = getClassText(card, "base-search-card__title");
       const company = getClassText(card, "base-search-card__subtitle");
       const location = getClassText(card, "job-search-card__location");
@@ -192,7 +192,7 @@ function timeWindowMs(time: string) {
 }
 
 function getClassText(card: string, className: string) {
-  const match = card.match(new RegExp(`<[^>]*class="[^\"]*${className}[^\"]*"[^>]*>([\\s\\S]*?)<\\/[^>]+>`, "i"));
+  const match = card.match(new RegExp(`<[^>]*class="[^"]*${className}[^"]*"[^>]*>([\\s\\S]*?)<\\/[^>]+>`, "i"));
   return match ? decodeHtml(match[1].replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()) : "";
 }
 
