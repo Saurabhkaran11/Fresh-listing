@@ -1,21 +1,36 @@
 # Fresh Listings
 
-Fresh Listings is an authenticated job-search workspace. It stores each scrape in D1, supports a server-side Google Jobs provider, and can sync new rows to a native Google Sheet that is Excel-compatible. LinkedIn live collection remains available through the free browser extension when the hosted server is rate-limited.
+Fresh Listings is an authenticated job-search workspace for collecting, ranking, and tracking software-engineering opportunities. It stores each scrape in Cloudflare D1, supports a server-side Google Jobs provider, can sync new rows to a native Google Sheet that is Excel-compatible, sends an optional digest, and provides an optional AI fit analysis. LinkedIn live collection remains available through the free browser extension when a hosted server is rate-limited.
 
-## Runtime setup
+## Product surface
 
-Set these Site runtime values before enabling the cloud workflow:
+- **Live search:** role, location, and 24-hour / 7-day / 30-day windows.
+- **Persistent history:** title, company, source, location, direct and application links, posting age, salary, skills, fit fields, search query, and capture time.
+- **Provider adapter:** SerpApi Google Jobs JSON, with a LinkedIn public-feed fallback and the browser extension for local collection.
+- **Google sync:** OAuth with `drive.file` and `spreadsheets` scopes; creates a `Fresh Listings Job Tracker` sheet and appends only unsynced rows.
+- **AI Fit Analyzer:** optional Gemini scoring with skill gaps and three portfolio-project suggestions.
+- **Digest:** optional Resend HTML email endpoint.
 
-- `SERPAPI_API_KEY` enables server-side Google Jobs collection.
-- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_TOKEN_ENCRYPTION_KEY` enable Drive/Sheets OAuth. Register `/api/google/oauth/callback` as an authorized redirect URI in Google Cloud.
-- `RESEND_API_KEY` and `EMAIL_FROM` enable the digest button.
-- `GEMINI_API_KEY` is reserved for the AI fit analyzer integration.
+## Runtime secrets
 
-The Google token is encrypted with AES-GCM before it is stored in D1. The application requests only `drive.file` and `spreadsheets` scopes and creates the tracker in the connected Drive account.
+Copy `.env.example` for local development. In production, set the same names in the Site's private runtime environment. Never commit real values, put them in frontend code, or paste them into a public issue.
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+| Variable | Required for | Notes |
+| --- | --- | --- |
+| `SERPAPI_API_KEY` | Automated cloud scraping | SerpApi Google Jobs key |
+| `GOOGLE_CLIENT_ID` | Drive/Sheets OAuth | Web application OAuth client |
+| `GOOGLE_CLIENT_SECRET` | Drive/Sheets OAuth | Keep secret |
+| `GOOGLE_TOKEN_ENCRYPTION_KEY` | Drive/Sheets OAuth | Base64-encoded 32-byte AES-GCM key |
+| `RESEND_API_KEY` | Email digest | Resend API key |
+| `EMAIL_FROM` | Email digest | Verified sender, such as `Fresh Listings <jobs@example.com>` |
+| `GEMINI_API_KEY` | AI Fit Analyzer | Gemini API key, server-side only |
+| `GEMINI_MODEL` | AI Fit Analyzer | Defaults to `gemini-2.0-flash` |
+
+For Google OAuth, register this exact redirect URI:
+
+```text
+https://fresh-linkedin-listings.saurabhkaran11.chatgpt.site/api/google/oauth/callback
+```
 
 ## Prerequisites
 
@@ -29,18 +44,33 @@ npm run dev
 npm run build
 ```
 
-This starter does not use `wrangler.jsonc`.
+The app uses vinext and Cloudflare-compatible output. D1 is declared as the `DB` binding in `.openai/hosting.json`; Drizzle migrations live under `drizzle/`.
 
-## Included Shape
+## API routes
 
-- edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
+- `POST /api/scraper/run` — authenticate, collect, normalize, and persist jobs.
+- `GET /api/jobs` — public-feed/native-search compatibility route.
+- `GET /api/google/status` — report Drive connection and provider readiness.
+- `GET /api/google/oauth/start` and `/api/google/oauth/callback` — Google OAuth.
+- `POST /api/google/sync` — append unsynced jobs to the user's Sheet.
+- `POST /api/digest/send` — send the latest saved jobs by email.
+- `POST /api/ai/fit` — score a saved job and persist the fit analysis.
 
-## Workspace Auth Headers
+## Browser extension
+
+The downloadable `public/fresh-listings-extension.zip` searches LinkedIn from the user's browser, supports the same posting windows, saves selected jobs to the Drive archive, and can save a job detail page from LinkedIn, Indeed, Built In, Glassdoor, Greenhouse, or TrueUp.
+
+## Git and deployment
+
+Keep the repository private because the application handles user-linked job history and OAuth state. Deployment uses the private Sites project and the `main` branch. Before publishing, run:
+
+```bash
+npm test
+npm run lint
+npm run build
+```
+
+## Workspace authentication
 
 Signed-in visitors receive both `oai-authenticated-user-id` and `oai-authenticated-user-email`. Private Sites require every visitor to sign in; public Sites may also have anonymous visitors, for whom neither header is present.
 
@@ -73,7 +103,7 @@ export default async function Home() {
 }
 ```
 
-## Optional Dispatch-Owned ChatGPT Sign-In
+## Dispatch-owned ChatGPT sign-in
 
 Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
 optional or required ChatGPT sign-in:
@@ -100,14 +130,14 @@ or enforce explicit server-side membership or allowlist checks.
 Use SIWC for account pages, user-specific dashboards, saved records, and write
 actions tied to the current ChatGPT user. Leave public content anonymous.
 
-## Useful Commands
+## Useful commands
 
 - `npm run dev`: start local development
 - `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
+- `npm test`: build and run the rendered-experience checks
 - `npm run db:generate`: generate Drizzle migrations after schema changes
 
-## Learn More
+## Learn more
 
 - [vinext Documentation](https://github.com/cloudflare/vinext)
 - [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
