@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: fresh-listings-realtime
+    runtime: node
+    plan: starter
+    buildCommand: npm ci --omit=dev
+    startCommand: npm run realtime:start
+    healthCheckPath: /ready
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: REALTIME_SESSION_SECRET
+        sync: false
+      - key: REALTIME_EVENT_SECRET
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: FRONTEND_ORIGIN
+        sync: false

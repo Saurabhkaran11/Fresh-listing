@@ -117,6 +117,23 @@ npm run lint
 npm run build
 ```
 
+## Production migration
+
+The current Sites deployment is the rollback surface. The target worldwide
+deployment separates a stock Next.js web app, a Render Node/Socket.IO service,
+managed PostgreSQL, and managed Redis. Read the detailed design and rollout
+runbook before moving production traffic:
+
+- [Production system design](docs/production-system-design.md) — service boundaries, security, latency budgets, SLOs, and failure handling.
+- [Production migration runbook](docs/production-migration-runbook.md) — accounts, migrations, Render/Vercel setup, cutover, and rollback.
+- `render.yaml` — Render realtime service configuration.
+- `infra/postgres/schema.sql` — PostgreSQL baseline for the migration.
+- `.env.production.example` — target production secret names and ownership.
+
+The existing Vinext/Cloudflare-D1 root is intentionally not advertised as a
+Vercel deployment target. Complete the PostgreSQL and stock Next.js migration
+before attaching a Vercel production domain.
+
 ## Workspace authentication
 
 Signed-in visitors receive both `oai-authenticated-user-id` and `oai-authenticated-user-email`. Private Sites require every visitor to sign in; public Sites may also have anonymous visitors, for whom neither header is present.
