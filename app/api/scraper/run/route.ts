@@ -25,20 +25,20 @@ export async function POST(request: Request) {
     await emitRealtimeEvent("scrape:started", { userId: user.userId, keywords, location, timeWindow });
     const result = await collectJobs({ keywords, location, timeWindow, sources, greenhouseBoards });
     const statements = result.jobs.map((job) => database.prepare(`
-      INSERT INTO job_postings (owner_user_id, external_id, title, company, location, source, direct_url, apply_url, description, posted_at, remote_status, experience, salary, skills_json, search_query, captured_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(owner_user_id, external_id) DO UPDATE SET title = excluded.title, company = excluded.company, location = excluded.location, direct_url = excluded.direct_url, apply_url = excluded.apply_url, description = excluded.description, posted_at = excluded.posted_at, remote_status = excluded.remote_status, experience = excluded.experience, salary = excluded.salary, skills_json = excluded.skills_json, search_query = excluded.search_query, captured_at = excluded.captured_at
-    `).bind(user.userId, job.externalId, job.title, job.company, job.location, job.source, job.directUrl, job.applyUrl, job.description, job.postedAt, job.remoteStatus, job.experience, job.salary, JSON.stringify(job.skills), `${keywords} · ${location}`, startedAt));
+      INSERT INTO job_postings (owner_user_id, external_id, title, company, location, source, source_portal, provider, direct_url, apply_url, description, posted_at, remote_status, experience, salary, skills_json, search_query, captured_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(owner_user_id, external_id) DO UPDATE SET title = excluded.title, company = excluded.company, location = excluded.location, source = excluded.source, source_portal = excluded.source_portal, provider = excluded.provider, direct_url = excluded.direct_url, apply_url = excluded.apply_url, description = excluded.description, posted_at = excluded.posted_at, remote_status = excluded.remote_status, experience = excluded.experience, salary = excluded.salary, skills_json = excluded.skills_json, search_query = excluded.search_query, captured_at = excluded.captured_at
+    `).bind(user.userId, job.externalId, job.title, job.company, job.location, job.source, job.portal, job.provider, job.directUrl, job.applyUrl, job.description, job.postedAt, job.remoteStatus, job.experience, job.salary, JSON.stringify(job.skills), `${keywords} · ${location}`, startedAt));
     statements.push(database.prepare("INSERT INTO scrape_runs (owner_user_id, provider, keywords, location, time_window, result_count, status) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(user.userId, result.provider, keywords, location, timeWindow, result.jobs.length, "succeeded"));
     await database.batch(statements);
     await emitRealtimeEvent("scrape:progress", { userId: user.userId, scanned: result.scanned, saved: result.jobs.length, provider: result.provider });
     await emitRealtimeEvent("job:saved", { userId: user.userId, count: result.jobs.length, provider: result.provider });
-    const jobs = result.jobs.map((job) => ({ id: job.externalId, title: job.title, company: job.company, location: job.location, posted: job.postedAt || "Recently listed", link: job.directUrl, source: job.source, capturedAt: startedAt }));
+    const jobs = result.jobs.map((job) => ({ id: job.externalId, title: job.title, company: job.company, location: job.location, posted: job.postedAt || "Recently listed", link: job.directUrl, source: job.source, portal: job.portal, provider: job.provider, capturedAt: startedAt }));
     return Response.json({ jobs, provider: result.provider, persistedCount: result.jobs.length, scanned: result.scanned, exhausted: true, sourceLinks: result.sourceLinks, notice: result.notices.join(" ") || undefined }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const message = databaseErrorMessage(error);
     try { await database.prepare("INSERT INTO scrape_runs (owner_user_id, provider, keywords, location, time_window, result_count, status, error) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(user.userId, "unavailable", keywords, location, timeWindow, 0, "failed", message).run(); } catch { /* preserve the provider error */ }
-    return Response.json({ error: message }, { status: /provider|SERPAPI|approved|Greenhouse/i.test(message) ? 503 : 500 });
+    return Response.json({ error: message }, { status: /provider|SearchApi|approved|Greenhouse/i.test(message) ? 503 : 500 });
   }
 }
 

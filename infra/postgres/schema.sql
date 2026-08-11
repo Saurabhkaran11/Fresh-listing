@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS job_postings (
   company text NOT NULL,
   location text NOT NULL DEFAULT 'Location not listed',
   source text NOT NULL,
+  source_portal text NOT NULL DEFAULT 'Unknown',
+  provider text NOT NULL DEFAULT 'unknown',
   direct_url text NOT NULL,
   apply_url text,
   description text NOT NULL DEFAULT '',
@@ -40,6 +42,9 @@ CREATE TABLE IF NOT EXISTS job_postings (
   updated_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (owner_user_id, external_id)
 );
+
+ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS source_portal text NOT NULL DEFAULT 'Unknown';
+ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS provider text NOT NULL DEFAULT 'unknown';
 
 CREATE INDEX IF NOT EXISTS job_postings_owner_created_idx
   ON job_postings (owner_user_id, created_at DESC);

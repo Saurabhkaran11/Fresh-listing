@@ -41,7 +41,7 @@ flowchart LR
 ## 4. Durable data model
 
 - `users` and `user_settings` own identity, defaults, digest preferences, and account configuration.
-- `job_postings` uses `(owner_user_id, external_id)` for idempotent upserts and preserves source/application links.
+- `job_postings` uses `(owner_user_id, external_id)` for idempotent upserts and preserves the canonical source, reported portal, provider, and application links.
 - `scrape_runs` records queued/running/succeeded/failed states, provider timing, errors, and idempotency keys.
 - `user_integrations`, `telegram_links`, `outbox_events`, and `daily_metrics` isolate credentials, chats, delivery, and reporting.
 
@@ -77,7 +77,7 @@ flowchart LR
 
 - Google account selection occurs through OAuth `select_account`; the typed email is never treated as authorization.
 - The first sync creates a `Fresh Listings` Drive folder and a `Fresh Listings Job Tracker` Sheet inside it.
-- Rows contain title, company, source, location, posting age, links, remote status, salary, fit fields, and capture time.
+- Rows contain title, company, portal, provider, source, location, posting age, links, remote status, salary, fit fields, and capture time.
 - Sync is idempotent through `synced_at` and provider/job uniqueness; failed syncs remain retryable.
 
 ## 9. Telegram automation
@@ -146,7 +146,7 @@ flowchart LR
 
 ## 18. Required production secrets
 
-- Web/API: `DATABASE_URL`, `AUTH_SECRET`, OAuth client credentials, `GOOGLE_TOKEN_ENCRYPTION_KEY`, `SERPAPI_API_KEY`, and optional email/AI keys.
+- Web/API: `DATABASE_URL`, `AUTH_SECRET`, OAuth client credentials, `GOOGLE_TOKEN_ENCRYPTION_KEY`, `SEARCHAPI_API_KEY`, and optional email/AI keys.
 - Telegram: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, and a server-side bot username.
 - Realtime: `REALTIME_SESSION_SECRET`, `REALTIME_EVENT_SECRET`, `REDIS_URL`, and exact `FRONTEND_ORIGIN`.
 - Operations: `CRON_SECRET`, error-monitoring DSN, log endpoint credentials, and separate staging values.

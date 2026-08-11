@@ -18,6 +18,8 @@ test("production migration artifacts define the durable and realtime boundaries"
   assert.match(render, /healthCheckPath: \/ready/);
   assert.match(render, /REALTIME_EVENT_SECRET/);
   assert.match(schema, /CREATE TABLE IF NOT EXISTS job_postings/);
+  assert.match(schema, /source_portal text NOT NULL/);
+  assert.match(schema, /provider text NOT NULL/);
   assert.match(schema, /CREATE TABLE IF NOT EXISTS outbox_events/);
   assert.match(design, /Initial latency budgets/);
   assert.match(design, /PostgreSQL/);

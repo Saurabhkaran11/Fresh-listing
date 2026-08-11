@@ -10,7 +10,7 @@ export async function POST() {
   try {
     const database = getDatabase();
     await ensureUserSettings(database, user.userId, user.email);
-    const rows = await database.prepare("SELECT id, title, company, source, location, posted_at, direct_url, apply_url, remote_status, experience, salary, fit_score, skill_gaps, captured_at, search_query FROM job_postings WHERE owner_user_id = ? AND synced_at IS NULL ORDER BY created_at DESC LIMIT 500").bind(user.userId).all<StoredJob>();
+    const rows = await database.prepare("SELECT id, title, company, source_portal, provider, source, location, posted_at, direct_url, apply_url, remote_status, experience, salary, fit_score, skill_gaps, captured_at, search_query FROM job_postings WHERE owner_user_id = ? AND synced_at IS NULL ORDER BY created_at DESC LIMIT 500").bind(user.userId).all<StoredJob>();
     const jobs = rows.results || [];
     const result = await syncJobsToSheet(database, user.userId, jobs);
     if (jobs.length) await database.batch(jobs.map((job) => database.prepare("UPDATE job_postings SET synced_at = CURRENT_TIMESTAMP WHERE id = ? AND owner_user_id = ?").bind(job.id, user.userId)));

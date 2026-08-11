@@ -7,6 +7,8 @@ export type NormalizedJob = {
   company: string;
   location: string;
   source: JobSource;
+  portal: string;
+  provider: string;
   directUrl: string;
   applyUrl: string | null;
   description: string;
@@ -17,15 +19,23 @@ export type NormalizedJob = {
   skills: string[];
 };
 
-type SerpJob = {
-  job_id?: string;
+type SearchApiJob = {
+  position?: number;
   title?: string;
   company_name?: string;
   location?: string;
   description?: string;
-  share_link?: string;
-  apply_options?: Array<{ link?: string; title?: string }>;
-  detected_extensions?: { posted_at?: string; schedule_type?: string; work_from_home?: boolean; salary?: string };
+  via?: string;
+  sharing_link?: string;
+  apply_link?: string;
+  apply_links?: Array<{ link?: string; source?: string }>;
+  detected_extensions?: {
+    posted_at?: string;
+    schedule?: string;
+    schedule_type?: string;
+    salary?: string;
+    work_from_home?: boolean;
+  };
   extensions?: string[];
 };
 
@@ -65,13 +75,14 @@ export async function collectJobs(input: { keywords: string; location: string; t
   let scanned = 0;
 
   if (sources.includes("google_jobs")) {
-    if (config.SERPAPI_API_KEY) {
-      const result = await fetchSerpApiJobs(input.keywords, input.location, input.timeWindow, String(config.SERPAPI_API_KEY));
+    const searchApiKey = config.SEARCHAPI_API_KEY;
+    if (searchApiKey) {
+      const result = await fetchSearchApiJobs(input.keywords, input.location, input.timeWindow, String(searchApiKey));
       jobs.push(...result.jobs);
       scanned += result.scanned;
-      providers.push("serpapi_google_jobs");
+      providers.push("searchapi_google_jobs");
     } else {
-      notices.push("Google Jobs automation is not configured. Add SERPAPI_API_KEY to enable the approved provider.");
+      notices.push("Google Jobs automation is not configured. Add SEARCHAPI_API_KEY to enable the approved SearchApi provider.");
     }
   }
 
@@ -107,36 +118,50 @@ export async function collectJobs(input: { keywords: string; location: string; t
   };
 }
 
-async function fetchSerpApiJobs(keywords: string, location: string, timeWindow: string, apiKey: string) {
-  const url = new URL("https://serpapi.com/search.json");
-  url.search = new URLSearchParams({ engine: "google_jobs", q: keywords, location, api_key: apiKey, hl: "en" }).toString();
-  const response = await fetch(url, { headers: { accept: "application/json" } });
-  if (!response.ok) throw new Error(`The approved job provider returned HTTP ${response.status}.`);
-  const payload = await response.json() as { jobs_results?: SerpJob[]; error?: string };
-  if (payload.error) throw new Error(payload.error);
-  const sourceJobs = payload.jobs_results || [];
+/**
+ * SearchApi's Google Jobs engine aggregates public job listings without
+ * logging in to individual portals. The returned portal is derived from the
+ * provider's application source metadata, so users can see where each result
+ * came from without confusing an aggregator with a job-board login.
+ */
+async function fetchSearchApiJobs(keywords: string, location: string, timeWindow: string, apiKey: string) {
+  const url = new URL("https://www.searchapi.io/api/v1/search");
+  url.searchParams.set("engine", "google_jobs");
+  url.searchParams.set("q", keywords);
+  url.searchParams.set("hl", "en");
+  if (location && location !== "Worldwide") url.searchParams.set("location", location);
+
+  const response = await fetch(url, { headers: { accept: "application/json", authorization: `Bearer ${apiKey}` } });
+  const payload = await response.json().catch(() => ({})) as { jobs?: SearchApiJob[]; error?: string; message?: string };
+  if (!response.ok) throw new Error(payload.error || payload.message || `The SearchApi provider returned HTTP ${response.status}.`);
+
+  const sourceJobs = payload.jobs || [];
   return {
     scanned: sourceJobs.length,
     jobs: sourceJobs.filter((job) => isInWindow(job.detected_extensions?.posted_at, timeWindow)).flatMap((job) => {
       const title = clean(job.title);
       const company = clean(job.company_name);
-      const directUrl = job.share_link || job.apply_options?.[0]?.link || "";
+      const directUrl = job.apply_link || job.apply_links?.[0]?.link || job.sharing_link || "";
       if (!title || !company || !directUrl) return [];
-      const applyUrl = job.apply_options?.[0]?.link || directUrl;
+      const applyUrl = directUrl;
+      const metadata = `${job.title || ""} ${job.description || ""} ${job.location || ""} ${(job.extensions || []).join(" ")}`;
+      const portal = clean(job.apply_links?.[0]?.source || job.via).replace(/^via\s+/i, "") || "Google Jobs";
       return [{
-        externalId: `google-jobs-${job.job_id || stableId(`${company}-${title}-${directUrl}`)}`,
+        externalId: `google-jobs-${stableId(`${company}-${title}-${directUrl}`)}`,
         title,
         company,
         location: clean(job.location) || "Location not listed",
         source: "google_jobs" as const,
+        portal,
+        provider: "SearchApi Google Jobs",
         directUrl,
         applyUrl,
         description: clean(job.description),
         postedAt: clean(job.detected_extensions?.posted_at) || null,
-        remoteStatus: job.detected_extensions?.work_from_home ? "Remote" : null,
-        experience: job.detected_extensions?.schedule_type || null,
+        remoteStatus: job.detected_extensions?.work_from_home || /remote/i.test(metadata) ? "Remote" : null,
+        experience: job.detected_extensions?.schedule_type || job.detected_extensions?.schedule || null,
         salary: job.detected_extensions?.salary || null,
-        skills: extractSkills(`${job.title || ""} ${job.description || ""}`),
+        skills: extractSkills(metadata),
       }];
     }),
   };
@@ -173,6 +198,8 @@ async function fetchGreenhouseBoard(board: string, keywords: string, location: s
         company,
         location: clean(job.location?.name || office) || "Location not listed",
         source: "greenhouse" as const,
+        portal: "Greenhouse",
+        provider: "Greenhouse public board API",
         directUrl: job.absolute_url,
         applyUrl: job.absolute_url,
         description: clean(job.content),

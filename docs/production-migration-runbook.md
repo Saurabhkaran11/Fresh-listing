@@ -51,6 +51,7 @@ The application requires `DATABASE_URL` and deliberately does not create tables 
 
 - Deploy the stock Next.js app; Vercel must detect the Next.js framework and build with `next build`.
 - Set `DATABASE_URL`, `AUTH_SECRET`, Google OAuth values, provider keys, and integration secrets in Vercel’s production environment.
+- Apply the idempotent PostgreSQL migration after provider provenance changes so existing `job_postings` rows receive the `source_portal` and `provider` defaults.
 - Add the Vercel production origin to Google OAuth, Telegram webhook configuration, and realtime CORS.
 - Run a preview deployment against staging services before promoting production.
 

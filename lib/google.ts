@@ -1,7 +1,7 @@
 import { runtimeEnv } from "./runtime-db";
 import type { Database } from "./runtime-db";
 
-const SHEET_HEADERS = ["Job title", "Company", "Source", "Location", "Posted", "Direct link", "Apply link", "Remote", "Experience", "Salary", "Fit score", "Skill gaps", "Captured at", "Search"];
+const SHEET_HEADERS = ["Job title", "Company", "Portal", "Provider", "Source", "Location", "Posted", "Direct link", "Apply link", "Remote", "Experience", "Salary", "Fit score", "Skill gaps", "Captured at", "Search"];
 
 type UserSettings = { google_account_email: string | null; google_drive_folder_id: string | null; spreadsheet_id: string | null; google_refresh_token: string | null; google_access_token: string | null; google_access_expires_at: number | null };
 
@@ -67,10 +67,10 @@ export async function syncJobsToSheet(database: Database, userId: string, jobs: 
     await googleRequest(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(spreadsheetId)}?addParents=${encodeURIComponent(folderId)}&removeParents=root`, accessToken, { method: "PATCH", body: JSON.stringify({}) });
     await database.prepare("UPDATE user_settings SET spreadsheet_id = ?, updated_at = CURRENT_TIMESTAMP WHERE owner_user_id = ?").bind(spreadsheetId, userId).run();
   }
-  await googleRequest(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent("Sheet1!A1:N1")}?valueInputOption=RAW`, accessToken, { method: "PUT", body: JSON.stringify({ range: "Sheet1!A1:N1", majorDimension: "ROWS", values: [SHEET_HEADERS] }) });
+  await googleRequest(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent("Sheet1!A1:P1")}?valueInputOption=RAW`, accessToken, { method: "PUT", body: JSON.stringify({ range: "Sheet1!A1:P1", majorDimension: "ROWS", values: [SHEET_HEADERS] }) });
   if (jobs.length) {
-    const rows = jobs.map((job) => [job.title, job.company, job.source, job.location, job.posted_at, job.direct_url, job.apply_url, job.remote_status, job.experience, job.salary, job.fit_score, job.skill_gaps, job.captured_at, job.search_query]);
-    await googleRequest(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent("Sheet1!A:N")}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, accessToken, { method: "POST", body: JSON.stringify({ majorDimension: "ROWS", values: rows }) });
+    const rows = jobs.map((job) => [job.title, job.company, job.source_portal, job.provider, job.source, job.location, job.posted_at, job.direct_url, job.apply_url, job.remote_status, job.experience, job.salary, job.fit_score, job.skill_gaps, job.captured_at, job.search_query]);
+    await googleRequest(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent("Sheet1!A:P")}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, accessToken, { method: "POST", body: JSON.stringify({ majorDimension: "ROWS", values: rows }) });
   }
   return { spreadsheetId, url: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`, saved: jobs.length };
 }
