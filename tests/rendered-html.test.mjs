@@ -41,7 +41,7 @@ test("renders the Fresh Listings experience", async () => {
   assert.match(page, /InsightsPanel/);
   assert.match(insights, /AreaChart/);
   assert.match(insights, /socket.io-client/);
-  assert.match(scraperRoute, /SERPAPI_API_KEY|collectJobs/);
+  assert.match(scraperRoute, /SEARCHAPI_API_KEY|collectJobs/);
   assert.match(googleRoute, /syncJobsToSheet/);
   assert.match(googleStatus, /googleAccountEmail|driveFolderUrl/);
   assert.match(aiRoute, /GEMINI_API_KEY/);

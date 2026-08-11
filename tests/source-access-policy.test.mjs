@@ -17,8 +17,17 @@ test("restricted sources are represented as policy metadata instead of scrapers"
   assert.match(policy, /manual/);
   assert.match(scraper, /boards-api\.greenhouse\.io/);
   assert.match(scraper, /jobs\?content=true/);
+  assert.match(scraper, /SEARCHAPI_API_KEY/);
+  assert.match(scraper, /searchapi\.io\/api\/v1\/search/);
+  assert.match(scraper, /SearchApi Google Jobs/);
+  assert.match(scraper, /portal/);
+  assert.doesNotMatch(scraper, /SERPAPI_API_KEY|serpapi\.com/);
   assert.doesNotMatch(scraper, /linkedin\.com|jobs-guest|browser extension/i);
   assert.doesNotMatch(jobsRoute, /linkedin\.com|jobs-guest|fetchLinkedInJobs/);
   assert.doesNotMatch(manifest, /activeTab|scripting|linkedin\.com/);
   assert.doesNotMatch(extension, /executeScript|tabs\.query|linkedin\.com|jobs-guest/);
+  assert.match(policy, /fromage/);
+  assert.match(policy, /locKeyword/);
+  assert.match(policy, /builtin\.com\/jobs/);
+  assert.match(policy, /trueup\.io\/jobs/);
 });

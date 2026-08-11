@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { buildSourceLinks, describeManualSources, normalizeSources, type JobSource } from "../../../lib/source-policy";
 
 type Source = JobSource;
-type Job = { id: string; title: string; company: string; location: string; posted: string; link: string; source: Source; capturedAt: string };
+type Job = { id: string; title: string; company: string; location: string; posted: string; link: string; source: Source; portal: string; provider: string; capturedAt: string };
 
 const TIME_WINDOWS = new Set(["r86400", "r604800", "r2592000"]);
 const MAX_RESULTS = 250;
@@ -81,7 +81,7 @@ async function fetchGreenhouseBoard(board: string, keywords: string, location: s
     jobs: sourceJobs.flatMap((job) => {
       if (!job.id || !job.title || !job.absolute_url) return [];
       const date = job.first_published || job.updated_at;
-      return [{ id: `greenhouse-${board}-${job.id}`, title: job.title, company, location: job.location?.name || "Location not listed", posted: date ? `Updated ${new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : "Recently listed", link: job.absolute_url, source: "greenhouse" as const, capturedAt: new Date().toISOString() }];
+      return [{ id: `greenhouse-${board}-${job.id}`, title: job.title, company, location: job.location?.name || "Location not listed", posted: date ? `Updated ${new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : "Recently listed", link: job.absolute_url, source: "greenhouse" as const, portal: "Greenhouse", provider: "Greenhouse public board API", capturedAt: new Date().toISOString() }];
     }),
   };
 }

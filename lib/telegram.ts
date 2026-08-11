@@ -66,10 +66,10 @@ export function parseTelegramPrompt(message: string): TelegramPrompt {
   return { keywords: clampText(keywords, 120), location, timeWindow, sources };
 }
 
-export function formatJobDigest(jobs: Array<{ title: string; company: string; location: string; directUrl: string }>, heading: string) {
+export function formatJobDigest(jobs: Array<{ title: string; company: string; location: string; directUrl: string; portal?: string; provider?: string }>, heading: string) {
   const lines = [heading, ""];
   if (!jobs.length) return `${heading}\n\nNo new matching jobs were saved.`;
-  for (const job of jobs.slice(0, 20)) lines.push(`• ${job.title} — ${job.company} (${job.location})\n${job.directUrl}`);
+  for (const job of jobs.slice(0, 20)) lines.push(`• ${job.title} — ${job.company} (${job.location})\nPortal: ${job.portal || "Unknown"} · Provider: ${job.provider || "Unknown"}\n${job.directUrl}`);
   if (jobs.length > 20) lines.push(`\n…and ${jobs.length - 20} more saved in your dashboard.`);
   return lines.join("\n");
 }

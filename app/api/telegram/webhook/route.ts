@@ -48,16 +48,16 @@ export async function POST(request: Request) {
     const result = await collectJobs({ ...prompt, greenhouseBoards: [] });
     const capturedAt = new Date().toISOString();
     const statements = result.jobs.map((job) => database.prepare(`
-      INSERT INTO job_postings (owner_user_id, external_id, title, company, location, source, direct_url, apply_url, description, posted_at, remote_status, experience, salary, skills_json, search_query, captured_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(owner_user_id, external_id) DO UPDATE SET title = excluded.title, company = excluded.company, location = excluded.location, direct_url = excluded.direct_url, apply_url = excluded.apply_url, description = excluded.description, posted_at = excluded.posted_at, remote_status = excluded.remote_status, experience = excluded.experience, salary = excluded.salary, skills_json = excluded.skills_json, search_query = excluded.search_query, captured_at = excluded.captured_at
-    `).bind(link.ownerUserId, job.externalId, job.title, job.company, job.location, job.source, job.directUrl, job.applyUrl, job.description, job.postedAt, job.remoteStatus, job.experience, job.salary, JSON.stringify(job.skills), `${prompt.keywords} · ${prompt.location}`, capturedAt));
+      INSERT INTO job_postings (owner_user_id, external_id, title, company, location, source, source_portal, provider, direct_url, apply_url, description, posted_at, remote_status, experience, salary, skills_json, search_query, captured_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(owner_user_id, external_id) DO UPDATE SET title = excluded.title, company = excluded.company, location = excluded.location, source = excluded.source, source_portal = excluded.source_portal, provider = excluded.provider, direct_url = excluded.direct_url, apply_url = excluded.apply_url, description = excluded.description, posted_at = excluded.posted_at, remote_status = excluded.remote_status, experience = excluded.experience, salary = excluded.salary, skills_json = excluded.skills_json, search_query = excluded.search_query, captured_at = excluded.captured_at
+    `).bind(link.ownerUserId, job.externalId, job.title, job.company, job.location, job.source, job.portal, job.provider, job.directUrl, job.applyUrl, job.description, job.postedAt, job.remoteStatus, job.experience, job.salary, JSON.stringify(job.skills), `${prompt.keywords} · ${prompt.location}`, capturedAt));
     statements.push(database.prepare("INSERT INTO scrape_runs (owner_user_id, provider, keywords, location, time_window, result_count, status) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(link.ownerUserId, result.provider, prompt.keywords, prompt.location, prompt.timeWindow, result.jobs.length, "succeeded"));
     await database.batch(statements);
     await emitRealtimeEvent("job:saved", { userId: link.ownerUserId, count: result.jobs.length, source: "telegram" });
     const heading = `Saved ${result.jobs.length} jobs for “${prompt.keywords}”`;
     const suffix = result.notices.length ? `\n\n${result.notices.join(" ")}` : "";
-    await sendTelegramMessage(chatId, `${formatJobDigest(result.jobs.map((job) => ({ title: job.title, company: job.company, location: job.location, directUrl: job.directUrl })), heading)}${suffix}`);
+    await sendTelegramMessage(chatId, `${formatJobDigest(result.jobs.map((job) => ({ title: job.title, company: job.company, location: job.location, directUrl: job.directUrl, portal: job.portal, provider: job.provider })), heading)}${suffix}`);
     return Response.json({ ok: true, saved: result.jobs.length });
   } catch (error) {
     await sendTelegramMessage(chatId, `I couldn’t complete that search: ${databaseErrorMessage(error)}`);

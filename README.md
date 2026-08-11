@@ -7,7 +7,7 @@ Fresh Listings is a production Next.js job-search workspace. It collects jobs fr
 - Next.js App Router runs the UI and API routes on Vercel’s Node runtime.
 - Neon PostgreSQL is the only application database; there is no Cloudflare D1 or local fallback.
 - NextAuth uses Google OAuth and encrypted JWT sessions; job-board passwords and cookies are never collected.
-- SerpApi/Greenhouse provide approved/public discovery; restricted portals remain native-search links unless an official API is configured.
+- SearchApi and Greenhouse provide approved/public discovery; restricted portals remain native-search links unless an official API is configured.
 - Google Drive/Sheets, Resend, Gemini, Telegram, Redis, and Socket.IO are optional integrations enabled by server variables.
 
 ## Runtime flow
@@ -31,7 +31,7 @@ Fresh Listings is a production Next.js job-search workspace. It collects jobs fr
 - `DATABASE_URL`: Neon pooled PostgreSQL URL with SSL; never expose it as `NEXT_PUBLIC_*`.
 - `AUTH_SECRET`, `AUTH_GOOGLE_CLIENT_ID`, and `AUTH_GOOGLE_CLIENT_SECRET`: NextAuth session and sign-in configuration.
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and a base64 32-byte `GOOGLE_TOKEN_ENCRYPTION_KEY`: Drive/Sheets OAuth and token encryption.
-- `SERPAPI_API_KEY`: live multi-source provider; without it, public/manual source links remain available.
+- `SEARCHAPI_API_KEY`: the only live Google Jobs provider; without it, automated Google Jobs results are not returned and no provider fallback is used.
 - `NEXT_PUBLIC_APP_URL`: canonical HTTPS origin used for OAuth callbacks and links.
 
 ## Optional integrations
@@ -70,7 +70,7 @@ Fresh Listings is a production Next.js job-search workspace. It collects jobs fr
 
 - Public Greenhouse boards and approved aggregator APIs are queried server-side.
 - LinkedIn, Indeed, Glassdoor, Built In, TrueUp, and similar portals are not credential-scraped.
-- The UI supplies native search links for restricted sources and records the source policy notice.
+- The UI supplies source-specific native search links with supported keyword, location, and date parameters where available and records any remaining portal-side filtering limitations. Collected jobs always include the reported portal and provider provenance.
 - Add a new source behind a provider adapter, rate limit, terms review, normalization tests, and feature flag.
 - Never store portal passwords, cookies, MFA codes, or CAPTCHA material.
 

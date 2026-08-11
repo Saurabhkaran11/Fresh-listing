@@ -25,7 +25,7 @@ export const SOURCE_POLICIES: readonly SourcePolicy[] = [
     accessMode: "approved_api",
     automated: true,
     detail: "Automated feed",
-    userAction: "Uses the configured SerpApi provider; no job-portal password is collected.",
+    userAction: "Uses the configured SearchApi Google Jobs provider; no job-portal password is collected.",
   },
   {
     id: "greenhouse",
@@ -50,8 +50,8 @@ export const SOURCE_POLICIES: readonly SourcePolicy[] = [
     accessMode: "approved_api",
     automated: false,
     detail: "Partner API or native",
-    userAction: "Open the native search or use an Indeed-approved partner integration.",
-    searchUrl: (keywords, location, timeWindow) => `https://www.indeed.com/jobs?q=${encodeURIComponent(keywords)}&l=${encodeURIComponent(location)}&fromage=${timeWindow === "r86400" ? "1" : timeWindow === "r604800" ? "7" : "30"}`,
+    userAction: "Opens Indeed with the requested location and posting-age filter; automated collection still requires an Indeed-approved partner integration.",
+    searchUrl: (keywords, location, timeWindow) => `https://www.indeed.com/jobs?${new URLSearchParams({ q: keywords, l: location, fromage: ageDays(timeWindow), sort: "date" })}`,
   },
   {
     id: "builtin",
@@ -59,8 +59,8 @@ export const SOURCE_POLICIES: readonly SourcePolicy[] = [
     accessMode: "manual",
     automated: false,
     detail: "Manual import",
-    userAction: "Open the native search and paste the job URL or import a CSV; no public developer API was verified.",
-    searchUrl: (keywords) => `https://builtin.com/jobs?search=${encodeURIComponent(keywords)}`,
+    userAction: "Opens Built In with the requested keyword and location; use its native date filter when available. No public developer API was verified.",
+    searchUrl: (keywords, location) => `https://builtin.com/jobs?${new URLSearchParams({ search: keywords, location })}`,
   },
   {
     id: "glassdoor",
@@ -68,8 +68,8 @@ export const SOURCE_POLICIES: readonly SourcePolicy[] = [
     accessMode: "approved_api",
     automated: false,
     detail: "Written approval required",
-    userAction: "Open the native search unless Glassdoor approves an API/partner integration for this application.",
-    searchUrl: (keywords) => `https://www.glassdoor.com/Job/jobs.htm?sc.keyword=${encodeURIComponent(keywords)}`,
+    userAction: "Opens Glassdoor with the requested keyword and location; use its native date filter after opening. Automated collection requires written approval.",
+    searchUrl: (keywords, location) => `https://www.glassdoor.com/Job/jobs.htm?${new URLSearchParams({ "sc.keyword": keywords, locKeyword: location })}`,
   },
   {
     id: "trueup",
@@ -77,8 +77,8 @@ export const SOURCE_POLICIES: readonly SourcePolicy[] = [
     accessMode: "manual",
     automated: false,
     detail: "Manual import",
-    userAction: "Open the native search and paste the job URL or import a CSV; automated login/search requires written consent.",
-    searchUrl: (keywords) => `https://www.trueup.io/jobs?search=${encodeURIComponent(keywords)}`,
+    userAction: "Opens TrueUp with the requested keyword and location; use its native date filter when available. Automated login/search requires written consent.",
+    searchUrl: (keywords, location) => `https://www.trueup.io/jobs?${new URLSearchParams({ search: keywords, location })}`,
   },
 ] as const;
 
@@ -108,6 +108,10 @@ export function buildSourceLinks(keywords: string, location: string, timeWindow:
       note: policy.userAction,
     }];
   });
+}
+
+function ageDays(timeWindow: string) {
+  return timeWindow === "r86400" ? "1" : timeWindow === "r604800" ? "7" : "30";
 }
 
 export function describeManualSources(sources: JobSource[]): string {
