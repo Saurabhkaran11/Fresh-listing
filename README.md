@@ -1,6 +1,6 @@
 # Fresh Listings
 
-Fresh Listings is a production Next.js job-search workspace. It collects jobs from approved/public providers, stores each user’s searches in managed PostgreSQL, syncs saved jobs to Google Drive/Sheets, and supports optional AI, email, Telegram, and Socket.IO features.
+Fresh Listings is a Next.js job-search workspace that needs its own database and Google sign-in to run. It collects jobs from approved/public providers, stores each user’s searches in managed PostgreSQL, syncs saved jobs to Google Drive/Sheets, and supports optional AI, email, Telegram, and Socket.IO features.
 
 ## Production architecture
 
@@ -8,7 +8,7 @@ Fresh Listings is a production Next.js job-search workspace. It collects jobs fr
 - Neon PostgreSQL is the only application database; there is no Cloudflare D1 or local fallback.
 - NextAuth uses Google OAuth and encrypted JWT sessions; job-board passwords and cookies are never collected.
 - SearchApi and Greenhouse provide approved/public discovery; restricted portals remain native-search links unless an official API is configured.
-- Google Drive/Sheets, Resend, Gemini, Telegram, Redis, and Socket.IO are optional integrations enabled by server variables.
+- Google Drive/Sheets, Resend, Telegram, Redis, and Socket.IO are optional integrations enabled by server variables. Gemini uses the visitor's own key.
 
 ## Runtime flow
 
@@ -37,7 +37,7 @@ Fresh Listings is a production Next.js job-search workspace. It collects jobs fr
 ## Optional integrations
 
 - Resend: set `RESEND_API_KEY` and `EMAIL_FROM` for on-demand email digests.
-- Gemini: set `GEMINI_API_KEY` and `GEMINI_MODEL` for fit scoring and portfolio suggestions.
+- Gemini: AI Fit uses each visitor's own Gemini key, pasted in the app above the results. It stays in browser memory, travels only in a request to `/api/ai/fit` and is never stored or logged. `GEMINI_MODEL` optionally changes the model.
 - Telegram: set `TELEGRAM_BOT_TOKEN`, username, and webhook secret for prompt-driven searches and daily notifications.
 - Realtime: set `REALTIME_SERVICE_URL`, HMAC secrets, and `REDIS_URL` for the separate Socket.IO service.
 - Monitoring: set `SENTRY_DSN` and `OTEL_EXPORTER_OTLP_ENDPOINT` when an observability backend is available.
@@ -52,6 +52,8 @@ Fresh Listings is a production Next.js job-search workspace. It collects jobs fr
 
 ## Deployment
 
+- **Host:** Vercel for the web app. Render for the optional realtime service (`render.yaml`). The app cannot run without PostgreSQL (`DATABASE_URL`) and Google sign-in (`AUTH_SECRET`, `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET`). A visitor only sees the sign-in page until these are set.
+- **Visitors** sign in with Google and bring their own Gemini key for AI Fit. Job search uses the owner's `SEARCHAPI_API_KEY` and public Greenhouse boards.
 - Import `Saurabhkaran11/Fresh-listing` into Vercel as a Next.js project.
 - Add all required variables to Vercel Production and Preview scopes; do not commit `.env.local`.
 - Confirm the Neon schema is applied, then deploy with `npx vercel --prod` or the connected Git branch.
@@ -76,7 +78,7 @@ Fresh Listings is a production Next.js job-search workspace. It collects jobs fr
 
 ## Security and operations
 
-- All secrets are server-only environment variables and are excluded from Git.
+- All owner secrets are server-only environment variables and are excluded from Git. The only visitor secret is the optional Gemini key, which is held in browser memory.
 - Database queries are parameterized through the PostgreSQL adapter; user ownership is checked on every private route.
 - OAuth state expires quickly and refresh tokens are encrypted with AES-GCM before storage.
 - Cron and Telegram webhooks require independent secrets; realtime events use HMAC verification.

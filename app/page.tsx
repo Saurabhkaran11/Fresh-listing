@@ -43,6 +43,8 @@ export default function Home() {
   const [automationMessage, setAutomationMessage] = useState("");
   const [automationBusy, setAutomationBusy] = useState(false);
   const [analyzingId, setAnalyzingId] = useState("");
+  const [geminiKey, setGeminiKey] = useState(""); // the visitor's own key: this tab's memory only
+  const [fitMessage, setFitMessage] = useState("");
 
   const selectedWindow = useMemo(() => windows.find((window) => window.value === timeWindow) ?? windows[0], [timeWindow]);
 
@@ -112,15 +114,15 @@ export default function Home() {
   }
 
   async function analyzeFit(job: Job) {
-    setAnalyzingId(job.id); setAutomationMessage("");
+    setAnalyzingId(job.id); setFitMessage("");
     try {
-      const response = await fetch("/api/ai/fit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ externalId: job.id, candidateSkills: "TypeScript, JavaScript, React, Node.js, SQL, AWS" }) });
+      const response = await fetch("/api/ai/fit", { method: "POST", headers: { "content-type": "application/json", "x-gemini-key": geminiKey.trim() }, body: JSON.stringify({ externalId: job.id, candidateSkills: "TypeScript, JavaScript, React, Node.js, SQL, AWS" }) });
       const data = await response.json() as { analysis?: { score?: number; summary?: string }; error?: string };
       if (!response.ok) throw new Error(data.error || "AI fit analysis failed.");
       const score = Number(data.analysis?.score || 0);
       setJobs((current) => current.map((item) => item.id === job.id ? { ...item, fitScore: score } : item));
-      setAutomationMessage(`AI fit score: ${score}/100. ${data.analysis?.summary || "Analysis saved to your history."}`);
-    } catch (error) { setAutomationMessage(error instanceof Error ? error.message : "AI fit analysis failed."); }
+      setFitMessage(`AI fit score: ${score}/100. ${data.analysis?.summary || "Analysis saved to your history."}`);
+    } catch (error) { setFitMessage(error instanceof Error ? error.message : "AI fit analysis failed."); }
     finally { setAnalyzingId(""); }
   }
 
@@ -178,6 +180,7 @@ export default function Home() {
 
         {searched && !loading && <div className="status-line" role="status"><span className="status-check">✓</span><span>{isExhausted ? `Reached the end of the public results (${scanned} checked).` : `Scanned ${scanned} public listings, capped at 250 per source.`}</span></div>}
         {sourceLinks.length > 0 && <div className="source-links" aria-label="Continue your search on selected sources">{sourceLinks.map((source) => <a key={source.source} href={source.url} target="_blank" rel="noreferrer"><strong>{source.label}</strong><span>{source.note}</span><b aria-hidden="true">↗</b></a>)}</div>}
+        {jobs.length > 0 && <div className="greenhouse-field"><label htmlFor="gemini-key"><span>Your Gemini API key <small>for AI Fit</small></span></label><input id="gemini-key" type="password" autoComplete="off" spellCheck={false} value={geminiKey} onChange={(event) => setGeminiKey(event.target.value)} placeholder="AIza..." /><em>Billed to your own account. Not saved or logged, and cleared when you reload this tab. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Get a key</a></em>{fitMessage && <p className="automation-message" role="status">{fitMessage}</p>}</div>}
         <div className={jobs.length ? "results-table" : "results-table empty"}>{loading ? <LoadingRows /> : jobs.length ? <JobRows jobs={jobs} onAnalyze={analyzeFit} analyzingId={analyzingId} /> : <EmptyState searched={searched} windowLabel={selectedWindow.label} notice={notice} />}</div>
         <p className="disclaimer">Fresh Listings never asks for job-portal passwords, cookies, MFA codes, or CAPTCHA tokens. Collected jobs are limited to the configured SearchApi Google Jobs provider and named public Greenhouse boards; LinkedIn, Indeed, Built In, Glassdoor, and TrueUp are shown only as clearly labeled native-search links until approved APIs or partner feeds are available.</p>
       </section>

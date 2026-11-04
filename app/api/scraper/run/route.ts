@@ -18,8 +18,11 @@ export async function POST(request: Request) {
   const greenhouseBoards = Array.isArray(body.greenhouseBoards) ? body.greenhouseBoards.slice(0, 12).map((value) => clean(value, 80)) : [];
   if (!keywords) return Response.json({ error: "A job title or keyword is required." }, { status: 400 });
 
-  const database = getDatabase();
-  await ensureUserSettings(database, user.userId, user.email);
+  let database;
+  try {
+    database = getDatabase();
+    await ensureUserSettings(database, user.userId, user.email);
+  } catch (error) { return Response.json({ error: databaseErrorMessage(error) }, { status: 500 }); }
   const startedAt = new Date().toISOString();
   try {
     await emitRealtimeEvent("scrape:started", { userId: user.userId, keywords, location, timeWindow });

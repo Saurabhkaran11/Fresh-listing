@@ -44,7 +44,8 @@ test("renders the Fresh Listings experience", async () => {
   assert.match(scraperRoute, /SEARCHAPI_API_KEY|collectJobs/);
   assert.match(googleRoute, /syncJobsToSheet/);
   assert.match(googleStatus, /googleAccountEmail|driveFolderUrl/);
-  assert.match(aiRoute, /GEMINI_API_KEY/);
+  assert.match(aiRoute, /x-gemini-key/);
+  assert.doesNotMatch(aiRoute, /GEMINI_API_KEY/);
   assert.match(runtimeDb, /DATABASE_URL/);
   assert.match(runtimeDb, /@neondatabase\/serverless/);
   assert.doesNotMatch(runtimeDb, /D1Database|cloudflare/);
